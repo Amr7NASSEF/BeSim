@@ -31,7 +31,11 @@ controller.LaserMPC.Condensing =    CtrlParam.LaserMPC.Condensing;
 controller.RBC.use =    CtrlParam.RBC.use;
 controller.PID.use =    CtrlParam.PID.use;
 controller.MLagent.use =    CtrlParam.MLagent.use;
+controller.RMPC.use=    CtrlParam.RMPC.use; % L2020 RMPC MUP Use 
+controller.RMPC.Condensing =    CtrlParam.RMPC.Condensing;
 
+controller.RMPCLMI.use=    CtrlParam.RMPC.use; % L2020 RMPC MUP Use 
+controller.RMPCLMI.Condensing =    CtrlParam.RMPC.Condensing;
 % %  % input constraints  [W]
 % % controller.umax = ; % 
 % % controller.umin = ; % 
@@ -46,6 +50,7 @@ controller.MLagent.use =    CtrlParam.MLagent.use;
 % end
 
 fprintf('\n------------------ Controller -----------------------\n');
+% add elseif controller.RMPCMUP.use then prepare calling MUP 
 
 if not(controller.use)    % precomputed inputs and outputs or real measurements
     fprintf('*** Load pre-computed controls ... \n')
@@ -117,7 +122,68 @@ end
     [controller.LaserMPC.optimizer, controller.LaserMPC.constraints_info] = LaserMPCdesign(model, controller.LaserMPC);
        
     fprintf('*** Done.\n')    
+%% March 2020
+elseif CtrlParam.RMPC.use  
     
+    fprintf('*** Create RMPC controller ... \n')
+   
+if  strcmp(model.buildingType,'HollandschHuys')    
+     % horizons
+    controller.RMPC.N = 32;
+    controller.RMPC.Nc = 32;
+    controller.RMPC.Nrp = 32;
+    controller.RMPC.Ndp = 32;
+    % weight diagonal matrices 
+    controller.RMPC.Qsb = 1e10*eye(model.pred.ny);
+    controller.RMPC.Qsa = 1e10*eye(model.pred.ny);
+    controller.RMPC.Qu = 1e0*eye(model.pred.nu);
+else 
+     % horizons
+    controller.RMPC.N = 7;%3;%22;
+    controller.RMPC.Nc = 7;%22;
+    controller.RMPC.Nrp = 7;%22;
+    controller.RMPC.Ndp = 7;%22;
+    % weight diagonal matrices 
+    controller.RMPC.Qsb = 1e4*eye(model.pred.ny);
+    controller.RMPC.Qsa = 1e4*eye(model.pred.ny);
+    controller.RMPC.Qu = 1e4*eye(model.pred.nu);
+    
+end   
+    %  MPC optimizer synthesis   
+    [controller.RMPC.optimizer,controller.RMPC.Frobust,controller.RMPC.objrobust controller.RMPC.constraints_info] = BeRMPCdesign(model, controller.RMPC);
+    fprintf('*** Done.\n')
+    
+    
+elseif CtrlParam.RMPCLMI.use  
+    
+    fprintf('*** Create RMPC LMI controller ... \n')
+   
+if  strcmp(model.buildingType,'HollandschHuys')    
+     % horizons
+    controller.RMPCLMI.N = 32;
+    controller.RMPCLMI.Nc = 32;
+    controller.RMPCLMI.Nrp = 32;
+    controller.RMPCLMI.Ndp = 32;
+    % weight diagonal matrices 
+    controller.RMPCLMI.Qsb = 1e10*eye(model.pred.ny);
+    controller.RMPCLMI.Qsa = 1e10*eye(model.pred.ny);
+    controller.RMPCLMI.Qu = 1e0*eye(model.pred.nu);
+else 
+     % horizons
+    controller.RMPCLMI.N = 22;
+    controller.RMPCLMI.Nc = 22;
+    controller.RMPCLMI.Nrp = 22;
+    controller.RMPCLMI.Ndp = 22;
+    % weight diagonal matrices 
+    controller.RMPCLMI.Qsb = 1e4*eye(model.pred.ny);
+    controller.RMPCLMI.Qsa = 1e4*eye(model.pred.ny);
+    controller.RMPCLMI.Qu = 1*eye(model.pred.nu);
+    controller.RMPCLMI.Qx = 1*eye(model.pred.nx);
+    controller.RMPCLMI.Qy = 1*eye(model.pred.ny);
+end   
+    %  MPC optimizer synthesis   
+    [controller.RMPCLMI.optimizer, controller.RMPCLMI.constraints_info] = BeRMPCLMIdesign(model, controller.RMPCLMI);
+    fprintf('*** Done.\n')
     
     
 elseif CtrlParam.PID.use  
