@@ -80,6 +80,10 @@ elseif ctrl.LaserMPC.use
 elseif ctrl.MLagent.use
         N = ctrl.MLagent.numDelays;
         Nrp = ctrl.MLagent.numDelays;
+%% March 2020
+elseif ctrl.RMPC.use
+        N = ctrl.RMPC.N;
+        Nrp = ctrl.RMPC.Nrp;
 else
         N = 0;
         Nrp = 0;
@@ -87,6 +91,7 @@ end
 
 % state disturbacne trajectories
 X = zeros(model.plant.nx,Nsim+1);
+X(:,1) = 290 *ones(model.plant.nx,1);
 D = dist.d(SimStart:SimStop+N,:)';
 
 % diagnostics
@@ -190,15 +195,28 @@ if ctrl.LaserMPC.use
         end
 end
 
-if ctrl.MPC.use || ctrl.LaserMPC.use
+if ctrl.RMPC.use
+    
+%     initialize MPC diagnostics vectors
+        if model.plant.nd == 0  %  no disturbnances option
+             
+             [opt_out, feasible, info1, info2, info3, info4] =  ctrl.RMPC.optimizer{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
+        else
+             [opt_out, feasible, info1, info2, info3, info4] =  ctrl.RMPC.optimizer{{Xp(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
+        end
+ 
+end
+    
+
+if ctrl.MPC.use || ctrl.LaserMPC.use || ctrl.RMPC.use
     OBJ =  zeros(1,Nsim);            %  MPC objective function
-%     constr_nr = sum(ctrl.MPC.constraints_info.i_length);  % total number of constraints
+    constr_nr = sum(ctrl.RMPC.constraints_info.i_length);  % total number of constraints % L2020 RMPC instead of MPC
     DUALS = zeros(length(info4.Dual),Nsim);  %  MPC dual variables for constraints
     PRIMALS = zeros(length(info4.Primal) ,Nsim); 
     
     ITERS = nan(1,Nsim);  % number of iterations of the solver
-    INEQLIN = zeros(length(info4.solveroutput.lambda.ineqlin) ,Nsim);
-    EQLIN = zeros(length(info4.solveroutput.lambda.eqlin) ,Nsim);  
+    %INEQLIN = zeros(length(info4.solveroutput.lambda.ineqlin) ,Nsim);
+    %EQLIN = zeros(length(info4.solveroutput.lambda.eqlin) ,Nsim);  
 end
 
 
@@ -244,7 +262,7 @@ for k = 1:Nsim
         elseif ctrl.PID.use
 %             TODO - implementation
             
-        elseif ctrl.MPC.use || ctrl.LaserMPC.use       
+        elseif ctrl.MPC.use || ctrl.LaserMPC.use  || ctrl.RMPC.use      
             
             if ctrl.MPC.use
     %             TODO: predictions as standalone function
@@ -298,13 +316,41 @@ for k = 1:Nsim
                 end
 
                 MPC_options = ctrl.LaserMPC.optimizer.options;
+                
+            elseif ctrl.RMPC.use
+    %             TODO: predictions as standalone function
+                % preview of disturbance signals on the prediction horizon
+                Dpreview = D(:, k:k+(ctrl.RMPC.Ndp-1));   
+                % preview of thresholds on the prediction horizon - Dynamic comfort zone
+                wa_prev = wa(:, k:k+(ctrl.RMPC.Nrp-1));
+                wb_prev = wb(:, k:k+(ctrl.RMPC.Nrp-1));
+                % preview of the price signal
+                Price_prev = Price(:, k:k+(ctrl.RMPC.Nrp-1));
+                if estim.use   % estimated states
+                    if model.plant.nd == 0  %  no disturbnances option
+                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.RMPC.optimizer{{xp, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                    else
+                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.RMPC.optimizer{{xp, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                    end
+                else    % perfect state update
+                    if model.plant.nd == 0  %  no disturbnances option
+                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.RMPC.optimizer{{x0, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                    else
+                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.RMPC.optimizer{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
+                    end                 
+                end
+                  MPC_options = ctrl.RMPC.optimizer.options;
             end
                 
             
+ 
+            
+            
 %             %     feasibility check
+           %     feasibility check
             if ~ismember(feasible, [0 3 4 5])
                 k
-                error('infeasible')      
+               error('infeasible')      
             else
                 uopt = opt_out{1};   % optimal control action
                 OBJ(k) =  opt_out{2};   % objective function value   
@@ -318,8 +364,9 @@ for k = 1:Nsim
                     EQLIN(:,k) = info4.solveroutput.lambda.eqlin;
                 end
 %                 info4.solveroutput.lambda              
-            end           
-                 
+            end 
+            
+            
         elseif ctrl.MLagent.use   % machine learning controller
 %             TODO: finish implementation of all ML ctrls
             if ctrl.MLagent.TDNN.use    % Time delay neural network           
