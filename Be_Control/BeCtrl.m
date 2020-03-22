@@ -150,7 +150,7 @@ else
     
 end   
     %  MPC optimizer synthesis   
-    [controller.RMPC.optimizer,controller.RMPC.Frobust,controller.RMPC.objrobust, controller.RMPC.constraints_info] = BeRMPCdesign(model, controller.RMPC);
+    [controller.RMPC.optimizer, controller.RMPC.constraints_info] = BeRMPCdesign(model, controller.RMPC);
     fprintf('*** Done.\n')
     
     
