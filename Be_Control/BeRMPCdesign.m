@@ -1,4 +1,4 @@
-function [mpc,Frobust,objrobust, constraints_info] = BeMPCdesign(model, RMPCParam)
+function [mpc, constraints_info] = BeMPCdesign(model, RMPCParam)
 % MPC design function using Yalmip
 
 if nargin == 0
