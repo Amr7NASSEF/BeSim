@@ -258,5 +258,8 @@ for k = 1:N
         constraints_info.i_length(k) = length(double(con(k)));       
     end
 
+%     placehoders
+    Frobust = [];
+    objrobust = [];
 
 end
