@@ -139,18 +139,18 @@ if  strcmp(model.buildingType,'HollandschHuys')
     controller.RMPC.Qu = 1e0*eye(model.pred.nu);
 else 
      % horizons
-    controller.RMPC.N = 7;%3;%22;
-    controller.RMPC.Nc = 7;%22;
-    controller.RMPC.Nrp = 7;%22;
-    controller.RMPC.Ndp = 7;%22;
+    controller.RMPC.N = 12;%3;%22;
+    controller.RMPC.Nc = 12;%22;
+    controller.RMPC.Nrp = 12;%22;
+    controller.RMPC.Ndp = 12;%22;
     % weight diagonal matrices 
-    controller.RMPC.Qsb = 1e4*eye(model.pred.ny);
-    controller.RMPC.Qsa = 1e4*eye(model.pred.ny);
-    controller.RMPC.Qu = 1e4*eye(model.pred.nu);
+    controller.RMPC.Qsb = 1e8*eye(model.pred.ny);
+    controller.RMPC.Qsa = 1e1*eye(model.pred.ny);
+    controller.RMPC.Qu  = 1e0*eye(model.pred.nu);
     
 end   
     %  MPC optimizer synthesis   
-    [controller.RMPC.optimizer, controller.RMPC.constraints_info] = BeRMPCdesign(model, controller.RMPC);
+    [controller.RMPC.optimizer, controller.RMPC.constraints_info] = BeRMPCdesignDraft(model, controller.RMPC);
     fprintf('*** Done.\n')
     
     

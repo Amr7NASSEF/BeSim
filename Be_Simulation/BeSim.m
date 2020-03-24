@@ -91,7 +91,6 @@ end
 
 % state disturbacne trajectories
 X = zeros(model.plant.nx,Nsim+1);
-X(:,1) = 290 *ones(model.plant.nx,1);
 D = dist.d(SimStart:SimStop+N,:)';
 
 % diagnostics
@@ -355,9 +354,9 @@ for k = 1:Nsim
                 uopt = opt_out{1};   % optimal control action
                 OBJ(k) =  opt_out{2};   % objective function value   
 %                 DUALS(:,k) = info2{1};    % dual variables
-                DUALS(:,k) = info4.Dual; % dual variables values
-                PRIMALS(:,k) = info4.Primal; % primal variables values             
-                SolverTime(k) = info4.solvertime;  %  elapsed solver time of one MPC step               
+%                DUALS(:,k) = info4.Dual; % dual variables values
+ %               PRIMALS(:,k) = info4.Primal; % primal variables values             
+  %              SolverTime(k) = info4.solvertime;  %  elapsed solver time of one MPC step               
                 if strcmp(MPC_options.solver,'+quadprog')
                     ITERS(:,k) = info4.solveroutput.output.iterations;
                     INEQLIN(:,k) = info4.solveroutput.lambda.ineqlin;
@@ -429,7 +428,8 @@ for k = 1:Nsim
 %     TODO: dymola co-simulation
     if  SimParam.emulate
 %    State and Output update
-        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 +model.plant.Gd*1;
+        EE=ones(model.plant.nx,1);
+        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 +model.plant.Gd*1+EE*(-1+2*rand(1));%L2020
         yn = model.plant.Cd*x0 + model.plant.Dd*uopt + model.plant.Fd*1;
 
         % simulation model data vectors

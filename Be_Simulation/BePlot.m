@@ -24,7 +24,10 @@ if outdata.ctrl.MPC.use
     Nrp = outdata.ctrl.MPC.Nrp;
 elseif outdata.ctrl.LaserMPC.use
     N = outdata.ctrl.LaserMPC.N;
-    Nrp = outdata.ctrl.LaserMPC.Nrp;    
+    Nrp = outdata.ctrl.LaserMPC.Nrp;  
+elseif outdata.ctrl.RMPC.use
+    N = outdata.ctrl.RMPC.N;
+    Nrp = outdata.ctrl.RMPC.Nrp;  
 elseif outdata.ctrl.MLagent.use
     N = outdata.ctrl.MLagent.numDelays;
     Nrp = N;
