@@ -6,7 +6,7 @@
 % functionality intended for automatic construction of controls and
 % estimation for a given linear building model
 
-clear
+clear ;
 yalmip('clear');
 % close all
 
@@ -31,7 +31,7 @@ buildingType = 'Reno';
 % =========== 2, choose model order =================
 ModelParam.Orders.range = [4, 7, 10, 15, 20, 30, 40, 100];    % suggested = model orders for 'Reno', 'Old', 'RenoLight'
 % ModelParam.Orders.range = [100, 200, 600];                  % suggested model orders for 'Infrax', 'HollandschHuys'
-ModelParam.Orders.choice = 10; % L2020 March 4 'full';                            % model order selection for prediction
+ModelParam.Orders.choice = 100; % L2020 March 4 'full';                            % model order selection for prediction
 ModelParam.off_free = 1; %L2020 -change to 0 and observer the difference,                                      % augmented model with unmeasured disturbances
 ModelParam.reload = 0;                                        % if 1 reload ROM, if 0 load saved ROM
 
@@ -90,7 +90,7 @@ ctrl = BeCtrl(model, CtrlParam);       % construct a controller object
 % SimParam.run.start = 11;
 % SimParam.run.end = 17; 
 SimParam.run.start = 1;
-SimParam.run.end = 3; 
+SimParam.run.end = 2; 
 SimParam.verbose = 1;
 SimParam.flagSave = 0;
 SimParam.comfortTol = 1e-1;

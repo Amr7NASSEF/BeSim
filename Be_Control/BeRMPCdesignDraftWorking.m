@@ -51,12 +51,11 @@ end
     %  (decision variables to be found)
     V = sdpvar(nu, N,'full'); % in case of no uncertain disturbance U will equal V 
     Lxx=zeros(nu,nw);Lxx(:,1)=1;Lxx(:,7)=1;% shape your Lxx
-    LM = sdpvar(1,1,'full').*kron(tril(ones(N),-1),Lxx);% L( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw) )
+    LM = 0*sdpvar(1,1,'full').*kron(tril(ones(N),-1),Lxx);% L( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw) )
     u = sdpvar(nu, N, 'full');
     W = sdpvar(nw, N, 'full'); % uncertain disturbances 
     sL = sdpvar(ny, N, 'full'); %  general slack
     sH = sdpvar(ny, N, 'full'); %  general slack
-    s = sdpvar(ny, N, 'full'); %  general slack
     
     
     
@@ -144,11 +143,11 @@ for k = 1:N
             else
                 AExpX0 = model.pred.Ad * AExpX0;               
                 
-                con = con + [(y(:, k) = model.pred.Cd*( AExpX0 + AB(:, (N-k+1)*nu+1 : end ) * reshape( u(:,1:k-1) , nu * (k-1) , 1) + ...
+                y(:, k) = model.pred.Cd*( AExpX0 + AB(:, (N-k+1)*nu+1 : end ) * reshape( u(:,1:k-1) , nu * (k-1) , 1) + ...
                                                                   AE(:, (N-k+1)*nd+1 : end ) * reshape( d_prev(:,1:k-1) , nd * (k-1) , 1) + ...
                                                                   AW(:, (N-k+1)*nw+1 : end ) * reshape( W(:,1:k-1) , nw * (k-1) , 1)+ ...
                                                                   AG(:, (N-k+1)*1+1 : end ) * ones(k-1,1) ) + ...
-                                                                  model.pred.Dd*uk + model.pred.Fd*1):['SSM_single_shoot_k=',int2str(k)]];
+                                                                  model.pred.Dd*uk + model.pred.Fd*1;%:['SSM_single_shoot_k=',int2str(k)]];
 
                 AB(:, (N-k)*nu+1:(N-k+1)*nu ) = model.pred.Ad* AB(:, (N-k+1)*nu+1:(N-k+2)*nu );
                 AE(:, (N-k)*nd+1:(N-k+1)*nd ) = model.pred.Ad* AE(:, (N-k+1)*nd+1:(N-k+2)*nd );
@@ -171,9 +170,7 @@ for k = 1:N
         %% March 2020
         %   output constraints    
          con = con + [ (wb-sL(:,k)<= y(:,k) <=wa+sH(:,k)):['y_zone_k=',int2str(k)] ];   
-            %con = con + [ (wb-s(:,k)<= y(:,k) <=wa+s(:,k)):['y_zone_k=',int2str(k)] ];   
-        
-         %   input constraints
+        %   input constraints
          con = con + [ (model.pred.umin <= uk  <= model.pred.umax):['u_box_k=',int2str(k)] ];% add comment here
         %   slack constraints 
          con = con + [ (0*ones(model.pred.ny,1)<=sH(:,k)):['nonnegative_slacks_k=',int2str(k)] ];  
@@ -193,10 +190,8 @@ for k = 1:N
 %          end
                        % obj = obj +  V(:,k) ;%+ LM( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw ) ;
 
- obj = obj + 1e-5*norm(sL(:,k),1) + 1e-5*  norm(sH(:,k),1) + 1e-10 * norm(V(:,k));% + norm(uk,Inf); ...         %  comfort zone penalization
+ obj = obj + 1e-3*norm(sL(:,k),1) + 1e-3*  norm(sH(:,k),1) + 1e-10 * norm(V(:,k));% + norm(uk,Inf); ...         %  comfort zone penalization
                               %P*(V(:,k)'*Qu*V(:,k)); 
-                              
-                             % obj = obj + s(:,k)'*Qsb*s(:,k) +V(:,k)'*Qu*V(:,k);
                                      %  quadratic penalization of ctrl action move blocking formulation
 end
     

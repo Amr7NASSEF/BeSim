@@ -1,4 +1,4 @@
-function [mpc, constraints_info] = BeMPCdesignDraft(model, RMPCParam)
+function [mpc, constraints_info] = BeMPCdesignDraft1(model, RMPCParam)
 % MPC design function using Yalmip
 
 if nargin == 0
@@ -39,7 +39,7 @@ end
     Nrp = RMPCParam.Nrp; % reference preview horizon
     Ndp = RMPCParam.Ndp; % disturbacne preview horizon
 
-    
+
    %%
     % variables ( inputs to Optimisation problem when calling optimiser 
     x = sdpvar(nx, N+1, 'full'); % states of the building
@@ -50,14 +50,10 @@ end
     y = sdpvar(ny, N, 'full');
     %  (decision variables to be found)
     V = sdpvar(nu, N,'full'); % in case of no uncertain disturbance U will equal V 
-    Lxx=zeros(nu,nw);Lxx(:,1)=1;Lxx(:,7)=1;% shape your Lxx
-    LM = sdpvar(1,1,'full').*kron(tril(ones(N),-1),Lxx);% L( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw) )
+    LM = 0*sdpvar(1,1,'full').*kron(tril(ones(N),-1),ones(nu,nw));% L( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw) )
     u = sdpvar(nu, N, 'full');
     W = sdpvar(nw, N, 'full'); % uncertain disturbances 
-    sL = sdpvar(ny, N, 'full'); %  general slack
-    sH = sdpvar(ny, N, 'full'); %  general slack
     s = sdpvar(ny, N, 'full'); %  general slack
-    
     
     
     % weight diagonal matrices 
@@ -121,12 +117,9 @@ for k = 1:N
            %con = con + [ u(:,k) == V(:,k)];% maybe constraints 
             u(:,k) = V(:,k);
             uk = V(:,k);
-            %remove it G = G + [uncertain(W(:,k)) , - 10<= W(:,k) <= 10];
-            
 %             u_traj(:,k) = u(:,Nc);
         else
-            % remove it G = G + [uncertain(W(:,1:k-1)), model.pred.umin <= V(:,k) + LM( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw ) * reshape( W(:,1:k-1) , nw * (k-1) , 1)<= model.pred.umax , - 10<= W(:,1:k-1) <= 10];
-            %G = G + [ u(:,k) <= V(:,k) + LM( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw ) * reshape( W(:,1:k-1) , nw * (k-1) , 1)] ;% maybe constraints <=
+           % G = G + [ u(:,k) <= V(:,k) + LM( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw ) * reshape( W(:,1:k-1) , nw * (k-1) , 1)] ;% maybe constraints <=
             u(:,k) = V(:,k) + LM( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw ) * reshape( W(:,1:k-1) , nw * (k-1) , 1);
             uk = V(:,k) + LM( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw ) * reshape( W(:,1:k-1) , nw * (k-1) , 1) ;
 %             u_traj(:,k) = u(:,k);
@@ -140,15 +133,15 @@ for k = 1:N
                 AG(:, (N-k)*1+1:(N-k+1)*1 ) =  model.pred.Gd;         %  initial conditions matrix evolution
                 AW(:, (N-k)*nw+1:(N-k+1)*nw) = 1*eye(nx,nw)*1;        % G matrix in paper  the impact of Uncertainty on States dynamics 
                 
-                y(:, k) = model.pred.Cd*x(:, k) + model.pred.Dd*uk + model.pred.Fd*1;% : ['SSM_single_shoot_k=',int2str(k)]];% L2020 using V instead of U 
+                    y(:, k) = model.pred.Cd*x(:, k) + model.pred.Dd*uk + model.pred.Fd*1;%):['SSM_single_shoot_k=',int2str(k)] ];% L2020 using V instead of U 
             else
                 AExpX0 = model.pred.Ad * AExpX0;               
                 
-                con = con + [(y(:, k) = model.pred.Cd*( AExpX0 + AB(:, (N-k+1)*nu+1 : end ) * reshape( u(:,1:k-1) , nu * (k-1) , 1) + ...
+                y(:, k) = model.pred.Cd*( AExpX0 + AB(:, (N-k+1)*nu+1 : end ) * reshape( u(:,1:k-1) , nu * (k-1) , 1) + ...
                                                                   AE(:, (N-k+1)*nd+1 : end ) * reshape( d_prev(:,1:k-1) , nd * (k-1) , 1) + ...
                                                                   AW(:, (N-k+1)*nw+1 : end ) * reshape( W(:,1:k-1) , nw * (k-1) , 1)+ ...
                                                                   AG(:, (N-k+1)*1+1 : end ) * ones(k-1,1) ) + ...
-                                                                  model.pred.Dd*uk + model.pred.Fd*1):['SSM_single_shoot_k=',int2str(k)]];
+                                                                  model.pred.Dd*uk + model.pred.Fd*1;%:['SSM_single_shoot_k=',int2str(k)]];
 
                 AB(:, (N-k)*nu+1:(N-k+1)*nu ) = model.pred.Ad* AB(:, (N-k+1)*nu+1:(N-k+2)*nu );
                 AE(:, (N-k)*nd+1:(N-k+1)*nd ) = model.pred.Ad* AE(:, (N-k+1)*nd+1:(N-k+2)*nd );
@@ -170,37 +163,22 @@ for k = 1:N
         %         % comfort zone with  violation penalty - dynamic comfort zone
         %% March 2020
         %   output constraints    
-         con = con + [ (wb-sL(:,k)<= y(:,k) <=wa+sH(:,k)):['y_zone_k=',int2str(k)] ];   
-            %con = con + [ (wb-s(:,k)<= y(:,k) <=wa+s(:,k)):['y_zone_k=',int2str(k)] ];   
-        
-         %   input constraints
-         con = con + [ (model.pred.umin <= uk  <= model.pred.umax):['u_box_k=',int2str(k)] ];% add comment here
+         con = con + [ (wb-s(:,k)<= y(:,k) <=wa+s(:,k)):['y_zone_k=',int2str(k)] ];   
+        %   input constraints
+         con = con + [ (model.pred.umin <= uk  <= model.pred.umax):['u_box_k=',int2str(k)] ];
         %   slack constraints 
-         con = con + [ (0*ones(model.pred.ny,1)<=sH(:,k)):['nonnegative_slacks_k=',int2str(k)] ];  
-         con = con + [ (0*ones(model.pred.ny,1)<=sL(:,k)):['nonnegative_slacks_k=',int2str(k)] ];    
-
+         con = con + [ (0*ones(model.pred.ny,1)<=s(:,k)):['nonnegative_slacks_k=',int2str(k)] ];    
         %   uncertainty constraints 
-         G = G + [ - 1<= W(:,k) <= 1];
+         G = G + [ - 1000<= W(:,k) <= 1000];
 
     %   -------------  OBJECTIVE FUNCTION  -------------
         %    % quadratic objective function withouth states constr.  penalisation
-%          if k==1
-%                 obj = obj + s(:,k)'*Qsb*s(:,k) + ...         %  comfort zone penalization
-%                             (V(:,k)'*Qu*V(:,k));  
-%          else
-%              obj = obj + s(:,k)'*Qsb*s(:,k) + ...         %  comfort zone penalization
-%                             ((V(:,k) + LM( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw ) * reshape( W(:,1:k-1) , nw * (k-1) , 1))'*Qu*(V(:,k) + LM( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw ) * reshape( W(:,1:k-1) , nw * (k-1) , 1))); 
-%          end
-                       % obj = obj +  V(:,k) ;%+ LM( (k-1)*nu+1 : k*nu , 1 : (k-1)*nw ) ;
-
- obj = obj + 1e-5*norm(sL(:,k),1) + 1e-5*  norm(sH(:,k),1) + 1e-10 * norm(V(:,k));% + norm(uk,Inf); ...         %  comfort zone penalization
-                              %P*(V(:,k)'*Qu*V(:,k)); 
-                              
-                             % obj = obj + s(:,k)'*Qsb*s(:,k) +V(:,k)'*Qu*V(:,k);
+         
+                obj = obj + s(:,k)'*Qsb*s(:,k) + ...         %  comfort zone penalization
+                            P*(uk'*Qu*uk);  
+        
                                      %  quadratic penalization of ctrl action move blocking formulation
-end
-    
-
+    end
 
 
      %% construction of object optimizer
@@ -208,7 +186,7 @@ end
 
     %  optimizer options
    % try
-     %   options = sdpsettings('verbose', 1, 'solver','gurobi');%,'gurobi.TimeLimit',50);
+        options = sdpsettings('verbose', 1, 'solver','gurobi');%,'gurobi.TimeLimit',50);
      %options = sdpsettings('verbose', 1, 'solver','mosek');%,'gurobi.TimeLimit',50);
     %    
     %test = optimizer([],[],options,[],[]);
@@ -223,15 +201,14 @@ end
 %% March 2020 
      % optimizer for dynamic comfort zone
      if nd == 0  % no disturbances formulation
-         %mpc = optimizer([con, G, uncertain(W)], obj, options, { x(:, 1), wa_prev, wb_prev, price }, {V(:,1);W(:,1); obj} );
+         mpc = optimizer([con, G, uncertain(W)], obj, options, { x(:, 1), wa_prev, wb_prev, price }, {V(:,1);W(:,1); obj} );
          %mpc = optimizer([con], obj, options,  { x(:, 1), wa_prev, wb_prev, price }, {u(:,1); obj} );
      else
           % [Frobust,objrobust] = robustify(con + G ,obj,options,W);
           %mpc = optimizer(Frobust, objrobust, options,  { x(:, 1) }, {u(:,1); obj} );
           %mpc = optimizer([con, G , uncertain(W)], obj, options,  { x(:, 1), d_prev, wa_prev, wb_prev, price }, {V(:,1);W(:,1); obj} );
-           mpc = optimizer([con, G, uncertain(W)], obj, sdpsettings('solver','gurobi'),  { x(:, 1), d_prev, wa_prev, wb_prev, price }, {u(:,1); obj} );
-         % sol = optimize([con, G,uncertain(W)],[],sdpsettings('solver','gurobi')); 
-         % sol = optimize([con, G,uncertain(W)],obj,sdpsettings('solver','gurobi'), zeros(40,1));
+          mpc = optimizer([con, G, uncertain(W)], obj, options,  { x(:, 1), d_prev, wa_prev, wb_prev, price }, {u(:,1); obj} );
+          %sol = optimize (con,[],sdpsettings('solver','mosek')); 
      end    
 
 %      information about constraints size and type

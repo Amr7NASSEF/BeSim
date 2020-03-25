@@ -428,8 +428,8 @@ for k = 1:Nsim
 %     TODO: dymola co-simulation
     if  SimParam.emulate
 %    State and Output update
-        EE=ones(model.plant.nx,1);
-        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 +model.plant.Gd*1+EE*(-1+2*rand(1));%L2020
+        EE=eye(model.plant.nx,11);
+        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 +model.plant.Gd*1;%+EE*(-1+2*rand(11,1));%L2020
         yn = model.plant.Cd*x0 + model.plant.Dd*uopt + model.plant.Fd*1;
 
         % simulation model data vectors
@@ -718,7 +718,7 @@ if ctrl.use
         outdata.solver.OBJ = OBJ; % obj function
         outdata.solver.DUALS = DUALS; % dual variables
         outdata.solver.PRIMALS = PRIMALS;  % primal variables
-        outdata.solver.SolverTime = SolverTime;  % solvertime
+%        outdata.solver.SolverTime = SolverTime;  % solvertime
         outdata.solver.MPC_options.solver = MPC_options.solver; % solver info
         if strcmp(MPC_options.solver,'+quadprog')
             outdata.solver.ITERS = ITERS;  % number of iterations
