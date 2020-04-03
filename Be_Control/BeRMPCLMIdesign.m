@@ -67,9 +67,7 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model, RMPCLMIParam)
     B{3,1} = model.pred.Bd;
     C{3,1} = model.pred.Cd;
     
-    Qy = 1e9*eye(nu);%-3 *e0
-    Qw = C{3,1}'* C{3,1}*1e5;
-
+   
     
     % to organise the matrices for LMI 
     ZEROx = zeros(nx,nx);
