@@ -1,4 +1,4 @@
-function outdata = BeSim(model, estim, ctrl, dist, refs, SimParam)
+function outdata = BeSim(model,model2 ,estim, ctrl, dist, refs, SimParam)
 
 if nargin == 0  % model
    buildingType = 'Infrax';  
@@ -51,7 +51,7 @@ end
 fprintf('\n------------------ Simulation Setup -----------------\n');
 
 fprintf('*** Building Type = %s\n' , model.buildingType);
-fprintf('*** r order = %d, \n',   size(model.pred.Ad,1))
+fprintf('*** r order = %d, \n',   size(model2.pred.Ad,1))
 fprintf('*** Start day = %d , End day = %d \n', SimParam.run.start, SimParam.run.end);
 
 % Simulation steps   
@@ -147,14 +147,14 @@ end
 
 if estim.use 
     %     estmator vector inits
-    Xp = zeros(model.pred.nx,Nsim+1);
-    Xe = zeros(model.pred.nx,Nsim);
-    Ye = zeros(model.pred.ny,Nsim);
-    Yp = zeros(model.pred.ny,Nsim);
-%     Ye = 295.15*ones(model.pred.ny,Nsim);
-%     Yp = 295.15*ones(model.pred.ny,Nsim);
-%     Ye = 21.15*ones(model.pred.ny,Nsim);
-%     Yp = 21.15*ones(model.pred.ny,Nsim);
+    Xp = zeros(model2.pred.nx,Nsim+1);
+    Xe = zeros(model2.pred.nx,Nsim);
+    Ye = zeros(model2.pred.ny,Nsim);
+    Yp = zeros(model2.pred.ny,Nsim);
+%     Ye = 295.15*ones(model2.pred.ny,Nsim);
+%     Yp = 295.15*ones(model2.pred.ny,Nsim);
+%     Ye = 21.15*ones(model2.pred.ny,Nsim);
+%     Yp = 21.15*ones(model2.pred.ny,Nsim);
     
     % current estim states
     xe = Xe(:, 1);  
@@ -169,8 +169,8 @@ if estim.use
 
     if estim.MHE.use
         OBJ_MHE = zeros(1,Nsim);
-        We = zeros(model.pred.nx,Nsim);
-        Ve = zeros(model.pred.ny,Nsim);    
+        We = zeros(model2.pred.nx,Nsim);
+        Ve = zeros(model2.pred.ny,Nsim);    
     end   
 end
 
@@ -221,7 +221,7 @@ if ctrl.RMPCLMI.use
         end
         
         if (det(out{1,2})==0)
-            F=zeros(model.pred.nu,model.pred.nx);
+            F=zeros(model2.pred.nu,model2.pred.nx);
         else
             F = out{1,1} * (out{1,2})^-1;% Feedback gain.
         end
@@ -269,7 +269,7 @@ if ctrl.RMPCLMI.use
 %first we create M^-1 which is a matrix [(A-I_nx) B ; C , D ]% if Nu!= Ny
 % D should work to make the matrix M square such that we have the inverse 
 
-M = inv([model.pred.Ad - eye(model.pred.nx), model.pred.Bd; model.pred.Cd, model.pred.Dd]);
+M = inv([model2.pred.Ad - eye(model2.pred.nx), model2.pred.Bd; model2.pred.Cd, model2.pred.Dd]);
 
 end
 
@@ -393,14 +393,14 @@ for k = 1:Nsim
                 Price_prev = Price(:, k:k+(ctrl.RMPCLMI.Nrp-1));
                 
                 %Steady state conditions: 
-                SS= M *[-(model.pred.Ed*d0+model.pred.Gd); [R(:,k) - model.pred.Fd]];
+                SS= M *[-(model2.pred.Ed*d0+model2.pred.Gd); [R(:,k) - model2.pred.Fd]];
                 
-                xss = SS(1:model.pred.nx,:);
-                uss = SS(model.pred.nx+1:end,:);
+                xss = SS(1:model2.pred.nx,:);
+                uss = SS(model2.pred.nx+1:end,:);
                 xe = xp-xss;
                 
 %                 if k==1 
-%                     xe=zeros(model.pred.nx,1);
+%                     xe=zeros(model2.pred.nx,1);
 %                 end
 %                 
                 if estim.use   % estimated states
@@ -419,7 +419,7 @@ for k = 1:Nsim
                   MPC_options = ctrl.RMPCLMI.optimizer.options;
                  
                       if (det(out{1,2})==0) % to check singularity of W delete later 
-                           F = zeros(model.pred.nu,model.pred.nx);
+                           F = zeros(model2.pred.nu,model2.pred.nx);
                       else
                            F = out{1,1} * (out{1,2})^-1;% Feedback gain.
                       end
@@ -474,13 +474,13 @@ for k = 1:Nsim
 
                     uopt(abs(uopt)<200) = 0;
 %                     control contraints
-                    uopt(uopt>model.pred.umax) = model.pred.umax(uopt>model.pred.umax);
-                    uopt(uopt<model.pred.umin) = model.pred.umin(uopt<model.pred.umin);
+                    uopt(uopt>model2.pred.umax) = model2.pred.umax(uopt>model2.pred.umax);
+                    uopt(uopt<model2.pred.umin) = model2.pred.umin(uopt<model2.pred.umin);
                     
 %                     block simultaneous heating and cooling
                     if not(all(uopt < 0) || all(uopt > 0))                       
                        if sum(abs(uopt)) < 1e3
-                          uopt = zeros(model.pred.nu,1);
+                          uopt = zeros(model2.pred.nu,1);
                        elseif sum(uopt) > 0
                           uopt(uopt<0) = 0;
                        else
@@ -488,7 +488,7 @@ for k = 1:Nsim
                        end
                     end                   
                 else
-                    uopt = zeros(model.pred.nu,1);
+                    uopt = zeros(model2.pred.nu,1);
                 end
                 
             elseif ctrl.MLagent.RT.use
@@ -517,9 +517,9 @@ for k = 1:Nsim
 %         else   to be used to add uncertainty or not 
 %             
 %         end 
-        ratio = 25;% percentage of uncertainty  to the disturbance where 10 means unceratinty is in range of 10% of disturbance 
+        ratio = 10;% percentage of uncertainty  to the disturbance where 10 means unceratinty is in range of 10% of disturbance 
         WW = ((-norm(d0,inf)/(100/ratio))+(2*norm(d0,inf)/(100/ratio)).*rand(model.plant.nd,1));
-        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1 ;%+model.plant.Ed* WW;%L2020
+        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1;% +model.plant.Ed* WW;%L2020
         %GGG(:,k)=norm(d0,inf);
         %xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1;
         yn = model.plant.Cd*x0 + model.plant.Dd*uopt + model.plant.Fd*1;
@@ -541,33 +541,33 @@ for k = 1:Nsim
         if estim.SKF.use  % stationary KF
             
             % measurement update                              
-            yp = model.pred.Cd*xp + model.pred.Dd*uopt + model.pred.Fd*1;          % output estimation
+            yp = model2.pred.Cd*xp + model2.pred.Dd*uopt + model2.pred.Fd*1;          % output estimation
             ep = yn - yp;                                                       % estimation error
             xe = xp  + estim.SKF.L1*ep;                                       % estimated state
             
             % time update
-            xp = model.pred.Ad*xe + model.pred.Bd*uopt + model.pred.Ed*d0 + model.pred.Gd*1;
-            ye = model.pred.Cd*xe + model.pred.Dd*uopt + model.pred.Fd*1;     % output estimate with x[n|n]
+            xp = model2.pred.Ad*xe + model2.pred.Bd*uopt + model2.pred.Ed*d0 + model2.pred.Gd*1;
+            ye = model2.pred.Cd*xe + model2.pred.Dd*uopt + model2.pred.Fd*1;     % output estimate with x[n|n]
              
         elseif estim.TVKF.use  % time varying KF           
             
               if k == 1
-                  P = model.pred.Bd*estim.TVKF.Qe*model.pred.Bd';         % Initial error covariance   
+                  P = model2.pred.Bd*estim.TVKF.Qe*model2.pred.Bd';         % Initial error covariance   
               end
             
               % Measurement update
-              L1 = P*model.pred.Cd'/(model.pred.Cd*P*model.pred.Cd'+estim.TVKF.Re); % observer gain
-              yp = model.pred.Cd*xp + model.pred.Dd*uopt + model.pred.Fd*1;          % output estimation
+              L1 = P*model2.pred.Cd'/(model2.pred.Cd*P*model2.pred.Cd'+estim.TVKF.Re); % observer gain
+              yp = model2.pred.Cd*xp + model2.pred.Dd*uopt + model2.pred.Fd*1;          % output estimation
               ep = yn - yp;                                                       % estimation error
               xe = xp + L1*ep;                                                    % x[n|n]
-              P = (eye(model.pred.nx)-L1*model.pred.Cd)*P;                          % P[n|n]   estimation error covariance
-              errcov = model.pred.Cd*P*model.pred.Cd';                              % output estimation error covariance
+              P = (eye(model2.pred.nx)-L1*model2.pred.Cd)*P;                          % P[n|n]   estimation error covariance
+              errcov = model2.pred.Cd*P*model2.pred.Cd';                              % output estimation error covariance
               
               % Time update
-              xp = model.pred.Ad*xe + model.pred.Bd*uopt + model.pred.Ed*d0 + model.pred.Gd*1;        % x[n+1|n]
-              P = model.pred.Ad*P*model.pred.Ad' + model.pred.Bd*estim.TVKF.Qe*model.pred.Bd';       % P[n+1|n]
+              xp = model2.pred.Ad*xe + model2.pred.Bd*uopt + model2.pred.Ed*d0 + model2.pred.Gd*1;        % x[n+1|n]
+              P = model2.pred.Ad*P*model2.pred.Ad' + model2.pred.Bd*estim.TVKF.Qe*model2.pred.Bd';       % P[n+1|n]
             
-              ye = model.pred.Cd*xe + model.pred.Dd*uopt + model.pred.Fd*1;     % output estimate with x[n|n]
+              ye = model2.pred.Cd*xe + model2.pred.Dd*uopt + model2.pred.Fd*1;     % output estimate with x[n|n]
               
               % time varying parameters data
               EstimGain{k} = L1;
@@ -586,7 +586,7 @@ for k = 1:Nsim
                 obj_estim =  opt_out{3}; 
                 
                 if estim.MHE.Condensing                                       
-                    we = zeros(model.pred.nx,estim.MHE.N);
+                    we = zeros(model2.pred.nx,estim.MHE.N);
                 else
                     we =  opt_out{4};   % w decision variables at  x[n-N+1:n|n]
                 end                          
@@ -594,10 +594,10 @@ for k = 1:Nsim
             %    MHE post processing, integration of states at x[n-N+1|n] via state
             %    update and w to get x[n|n]           
                 for j = 1:N
-                    xe = model.pred.Ad*xe + model.pred.Bd*U(:,k-N+j) + model.pred.Ed*D(:,k-N+j) + model.pred.Gd*1 + we(:,j);
+                    xe = model2.pred.Ad*xe + model2.pred.Bd*U(:,k-N+j) + model2.pred.Ed*D(:,k-N+j) + model2.pred.Gd*1 + we(:,j);
                 end
              
-                ye = model.pred.Cd*xe + model.pred.Dd*uopt + model.pred.Fd*1 + ve(:,N);     % output estimate with x[n|n]               
+                ye = model2.pred.Cd*xe + model2.pred.Dd*uopt + model2.pred.Fd*1 + ve(:,N);     % output estimate with x[n|n]               
                 
                 OBJ_MHE(:,k) = obj_estim;
                 We(:,k) = we(:,N);

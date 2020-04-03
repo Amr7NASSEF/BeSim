@@ -43,12 +43,9 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model, RMPCLMIParam)
     % weight diagonal matrices 
     %Qsb = eye(ny);
     %Qsa = eye(ny);
-    %Qy = 1e0*eye(nu);%-3 *e0RMPCLMIParam.Qy
-    %Qw = 1e5*eye(nx);%RMPCLMIParam.Qw
-    Qy = RMPCLMIParam.Qy;
-    Qw = RMPCLMIParam.Qw;% look down \|/
-    
-    
+    Qy = 1e1*eye(nu);%-3
+    Qw = 1e6*eye(nx);%5
+    %Qy = 1e4*eye(ny);
 
      %% MPC problem formulation
     %  objective function+ constraints init
@@ -67,9 +64,7 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model, RMPCLMIParam)
     B{3,1} = model.pred.Bd;
     C{3,1} = model.pred.Cd;
     
-    Qy = 1e9*eye(nu);%-3 *e0
-    Qw = C{3,1}'* C{3,1}*1e5;
-
+   
     
     % to organise the matrices for LMI 
     ZEROx = zeros(nx,nx);
@@ -106,7 +101,7 @@ for k = 1:1
          [ W  ,  (A{v}*W + B{v}*Y)' , (sqrt(Qw)*W)', (sqrt(Qy)*Y)';...
         A{v}*W + B{v}*Y,    W                  , ZEROx        , ZEROxu;...
         sqrt(Qw)*W     , ZEROx              , Gamma*Ix     , ZEROxu;...
-        sqrt(Qy)*Y     , ZEROux             ,ZEROux        , Gamma*Iu ] >= slack1 ]:['Lmi_convx_k=',int2str(k)]];
+        sqrt(Qy)*Y     , ZEROux             ,ZEROux        , Gamma*Iu ] >= 0 ]:['Lmi_convx_k=',int2str(k)]];
             Lmi_convix = Lmi_convix + lmi_conv_item;
     end 
 
@@ -118,14 +113,12 @@ for k = 1:1
             Y', W] >= 0 ]:['Lmi_L2_k=',int2str(k)]];
   end
         
-    wm=[280;280;280;280;280;280];% Slack variable to be used% and % ymax 
+    wm=[297;297;297;297;297;297];% Slack variable to be used% and % ymax 
 
     % LMI for output
     Lmi_output_max = [];
     if(isempty(wa) == 0)
         con = con + [(0*ones(model.pred.ny,1)<=s):['nonnegative_slacks_k=',int2str(k)] ]; 
-        con = con + [(0>=slack1):['negative_slack1_k=',int2str(k)] ]; 
-
         for v = 1 : nv
            
         lmi_output_max_item = [[ 

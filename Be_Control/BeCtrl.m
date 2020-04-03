@@ -26,16 +26,18 @@ controller.use = CtrlParam.use;
 % controller.precomputed.use = CtrlParam.precomputed;
 controller.MPC.use =    CtrlParam.MPC.use;
 controller.MPC.Condensing =    CtrlParam.MPC.Condensing;
+
 controller.LaserMPC.use =    CtrlParam.LaserMPC.use;
 controller.LaserMPC.Condensing =    CtrlParam.LaserMPC.Condensing;
+
 controller.RBC.use =    CtrlParam.RBC.use;
 controller.PID.use =    CtrlParam.PID.use;
 controller.MLagent.use =    CtrlParam.MLagent.use;
+
 controller.RMPC.use=    CtrlParam.RMPC.use; % L2020 RMPC MUP Use 
 controller.RMPC.Condensing =    CtrlParam.RMPC.Condensing;
 
-controller.RMPCLMI.use=    CtrlParam.RMPC.use; % L2020 RMPC MUP Use 
-controller.RMPCLMI.Condensing =    CtrlParam.RMPC.Condensing;
+controller.RMPCLMI.use=    CtrlParam.RMPCLMI.use; % L2020 RMPC MUP Use 
 % %  % input constraints  [W]
 % % controller.umax = ; % 
 % % controller.umin = ; % 
@@ -93,7 +95,7 @@ end
     fprintf('*** Done.\n')
     
 elseif CtrlParam.LaserMPC.use  
-    fprintf('*** Create MPC controller ... \n')
+    fprintf('*** Create LaserMPC controller ... \n')
 
    
 if  strcmp(model.buildingType,'HollandschHuys')    
@@ -156,7 +158,7 @@ end
     
 elseif CtrlParam.RMPCLMI.use  
     
-    fprintf('*** Create RMPC LMI controller ... \n')
+    fprintf('*** Create LMI RMPC controller ... \n')
    
 if  strcmp(model.buildingType,'HollandschHuys')    
      % horizons
@@ -177,9 +179,8 @@ else
     % weight diagonal matrices 
     controller.RMPCLMI.Qsb = 1e4*eye(model.pred.ny);
     controller.RMPCLMI.Qsa = 1e4*eye(model.pred.ny);
-    controller.RMPCLMI.Qu = 1*eye(model.pred.nu);
-    controller.RMPCLMI.Qx = 1*eye(model.pred.nx);
-    controller.RMPCLMI.Qy = 1*eye(model.pred.ny);
+    controller.RMPCLMI.Qw = 1e5*eye(model.pred.nx);%1e6 1e5*eye(nx)
+    controller.RMPCLMI.Qy = 1e0*eye(model.pred.nu);%1e1
 end   
     %  MPC optimizer synthesis   
     [controller.RMPCLMI.optimizer, controller.RMPCLMI.constraints_info] = BeRMPCLMIdesign(model, controller.RMPCLMI);

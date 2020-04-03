@@ -1,19 +1,16 @@
-function [mpc, constraints_info] = BeRMPCLMIdesign(model, RMPCLMIParam)
-    %% MPC parameters
-
     % dimensions
-    nx = model.pred.nx;
-    ny = model.pred.ny;
-    nd = model.pred.nd;
-    nu = model.pred.nu;
+    nx = 30;
+    ny = 6;
+    nd = 44;
+    nu = 6;
 
-    % horizons    it is consider as infinite Horizon with LMI 
-    N = RMPCLMIParam.N;   %  prediction horizon
-    Nc = RMPCLMIParam.Nc; %  control horizon
-    Nrp = RMPCLMIParam.Nrp; % reference preview horizon
-    Ndp = RMPCLMIParam.Ndp; % disturbacne preview horizon
+    % horizons   
+    N = 2;   %  prediction horizon
+    Nc = 22; %  control horizon
+    Nrp = 22; % reference preview horizon
+    Ndp = 22; % disturbacne preview horizon
 
-   % variables
+    % variables
     x = sdpvar(nx, 1, 'full'); % states of the building
     d_prev = sdpvar(nd, Ndp, 'full'); % disturbances with preview
     % u = sdpvar(nu,   N, 'full'); % u = F * x
@@ -24,9 +21,8 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model, RMPCLMIParam)
     
     %U_Cons = sdpvar(nu,nu*N);% variable to handle input constraints 
     Gamma = sdpvar(1,1);% minimize Gamma
-      
+
    %%
-     %%
     s = sdpvar(ny, 1, 'full'); %  general slack
     y = sdpvar(ny, N, 'full'); % output = indoor temperatures [degC]
     r = sdpvar(ny, Nrp, 'full'); %refernce
@@ -43,33 +39,33 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model, RMPCLMIParam)
     % weight diagonal matrices 
     %Qsb = eye(ny);
     %Qsa = eye(ny);
-    %Qy = 1e0*eye(nu);%-3 *e0RMPCLMIParam.Qy
-    %Qw = 1e5*eye(nx);%RMPCLMIParam.Qw
-    Qy = RMPCLMIParam.Qy;
-    Qw = RMPCLMIParam.Qw;% look down \|/
-    
-    
+   
+    %Qy = 1e4*eye(ny);
+ 
 
-     %% MPC problem formulation
+    %% MPC problem formulation
     %  objective function+ constraints init
     obj = 0;
     con = [];
+    ZERO=0;
     
     %
     nv=3; % number of vertices 
-    A{1,1} = 1.1 * model.pred.Ad;% +10% for all
-    B{1,1} = 1.1 * model.pred.Bd;
-    C{1,1} = 1.1 * model.pred.Cd;
-    A{2,1} = 0.9 * model.pred.Ad;% -10% for all
-    B{2,1} = 0.9 * model.pred.Bd;
-    C{2,1} = 0.9 * model.pred.Cd;
+    A{1,1} = 1.0 * model.pred.Ad;% +10% for all
+    B{1,1} = 1.0 * model.pred.Bd;
+    C{1,1} = 1.0 * model.pred.Cd;
+    A{2,1} = 1.0 * model.pred.Ad;% -10% for all
+    B{2,1} = 1.0 * model.pred.Bd;
+    C{2,1} = 1.0 * model.pred.Cd;
     A{3,1} = model.pred.Ad;% nominal
     B{3,1} = model.pred.Bd;
     C{3,1} = model.pred.Cd;
-    
-    Qy = 1e9*eye(nu);%-3 *e0
-    Qw = C{3,1}'* C{3,1}*1e5;
 
+    
+    Qy = 1e-*eye(nu);%-3 *e0
+    Qw = C{3,1}'* C{3,1}*1e4;%C{3,1}'* C{3,1}*1e1 % -2 % 1e-2*eye(nu)
+    % sqrt qw will go to 10^-3 
+    %1e0*eye(nx)
     
     % to organise the matrices for LMI 
     ZEROx = zeros(nx,nx);
@@ -77,10 +73,10 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model, RMPCLMIParam)
     ZEROxu = zeros(nx,nu);
     Ix = eye(nx);
     Iu = eye(nu);
- 
-    
-    
-    
+% comfort zone and price preview 
+
+
+
 for k = 1:1 
 
         %   -------------  Constraints  -------------
@@ -94,43 +90,42 @@ for k = 1:1
             P = price(:,k);
         end
 
-    Lmi_Lyap=[[W >= 0] : ['Lmi_Lyap_k=',int2str(k)]];% W>=0
+    Lmi_Lyap=[[W >= ZERO] : ['Lmi_Lyap_k=',int2str(k)]];% W>=0
     
-    Lmi_rie =[[[1, x(:,k)'; x(:,k), W] >= 0] :['Lmi_rie_k=',int2str(k)] ];% condition to minimize gamma
+    Lmi_rie =[[[1, x(:,k)'; x(:,k), W] >= ZERO] :['Lmi_rie_k=',int2str(k)] ];% condition to minimize gamma
 
 
 % LMI for convix
     Lmi_convix = [];
     for v = 1 : nv
       lmi_conv_item = [[ 
-         [ W  ,  (A{v}*W + B{v}*Y)' , (sqrt(Qw)*W)', (sqrt(Qy)*Y)';...
+         [ W  ,  (A{v}*W + B{v}*Y)' , ((Qw)*W)', ((Qy)*Y)';...
         A{v}*W + B{v}*Y,    W                  , ZEROx        , ZEROxu;...
-        sqrt(Qw)*W     , ZEROx              , Gamma*Ix     , ZEROxu;...
-        sqrt(Qy)*Y     , ZEROux             ,ZEROux        , Gamma*Iu ] >= slack1 ]:['Lmi_convx_k=',int2str(k)]];
+        (Qw)*W     , ZEROx              , Gamma*Ix     , ZEROxu;...
+        (Qy)*Y     , ZEROux             ,ZEROux        , Gamma*Iu ] >= slack1 ]:['Lmi_convx_k=',int2str(k)]];
             Lmi_convix = Lmi_convix + lmi_conv_item;
     end 
+    con = con + [(0>=slack1)];
 
 % LMI for input       
     Lmi_u_max = [];
     if(isempty(model.pred.umax) == 0)
         % L2-norm
         Lmi_u_max = [ [[ diag(model.pred.umax.^2), Y;...
-            Y', W] >= 0 ]:['Lmi_L2_k=',int2str(k)]];
+            Y', W] >= ZERO ]:['Lmi_L2_k=',int2str(k)]];
   end
         
-    wm=[280;280;280;280;280;280];% Slack variable to be used% and % ymax 
+    wm=[297;297;297;297;297;297];% Slack variable to be used% and % ymax 
 
     % LMI for output
     Lmi_output_max = [];
     if(isempty(wa) == 0)
         con = con + [(0*ones(model.pred.ny,1)<=s):['nonnegative_slacks_k=',int2str(k)] ]; 
-        con = con + [(0>=slack1):['negative_slack1_k=',int2str(k)] ]; 
-
         for v = 1 : nv
            
         lmi_output_max_item = [[ 
-            [ W,(A{v}*W + B{v}*Y)'*C{v}' ;...
-            C{v}*(A{v}*W + B{v}*Y), diag((wm.^2)+s) ] >= 0] :['Lmi_Y_k=',int2str(k)]  ];% adding slack variable to the output y 
+            [ W,(A{v}*W + B{v}*Y)'*C{v}';...
+             C{v}*(A{v}*W + B{v}*Y), diag((wm.^2)+s) ] >= ZERO] :['Lmi_Y_k=',int2str(k)]  ];% adding slack variable to the output y 
         
         Lmi_output_max = Lmi_output_max + lmi_output_max_item;
         end 
@@ -142,24 +137,68 @@ con = con + Lmi_Lyap + Lmi_rie + Lmi_convix + Lmi_u_max + Lmi_output_max;
    
     %   -------------  OBJECTIVE FUNCTION  -------------
                             obj = obj  + Gamma; 
-end
-
-
-        options = sdpsettings('verbose', 1, 'solver','sedumi');%,'gurobi.TimeLimit',50);
-        
-  %      sol = optimize(con,obj, options);
-        mpc = optimizer(con,obj, options,{x(:,1)},{Y(:,1:nx),W(:,1:nx)});
-             
-
-%      information about constraints size and type
-     constraints_info.con = con;
-     constraints_info.size = size(con);
-     constraints_info.i_length = NaN(length(con),1);
-     constraints_info.equality = is(con,'equality'); 
-        
-    for k = 1:length(con) 
-        constraints_info.i_length(k) = length(double(con(k)));       
     end
 
+        options = sdpsettings('verbose', 1, 'solver','mosek');%,'gurobi.TimeLimit',50);
+        
+        sol = optimize(con,obj, options);
+        solver = optimizer(con,obj, options,{x(:,1)},{Y(:,1:nx),W(:,1:nx),Gamma,slack1});
+        mpc=solver;
+        
+        
+        
+        
+        
+         output=solver(zeros(30,1));
+         yy=output{1,1};
+         ww=output{1,2};
+         gg=output{1,3};
+         SSS=output{1,4};
+         F=yy*ww^-1
+         value (slack1)
+         
+         
+         
+         vv= [       -0.1360
+    0.0154
+    0.1718
+   -0.1434
+   -0.3902
+   -0.4856
+   -0.2083
+    0.0990
+   -0.2466
+    0.7996
+   -0.6544
+    0.7376
+    3.7341
+    2.0101
+   -0.2900
+   -0.8969
+   -1.3846
+    0.2615
+   -3.0661
+    0.2339
+   -1.4442
+   -0.3033
+   -1.0581
+    1.2638
+   -0.6809
+    0.2688
+   -0.9613
+   -1.8422
+   -0.2674
+    0.8394];
+% 
+    output1=solver(vv);
 
-end
+         yy1=output1{1,1};
+         ww1=output1{1,2};
+         gg1=output{1,3};
+         SSS1=output{1,4};
+         
+         F1=yy1*ww1^-1
+         
+         
+  
+

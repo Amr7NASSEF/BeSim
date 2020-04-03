@@ -43,12 +43,9 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model, RMPCLMIParam)
     % weight diagonal matrices 
     %Qsb = eye(ny);
     %Qsa = eye(ny);
-    %Qy = 1e0*eye(nu);%-3 *e0RMPCLMIParam.Qy
-    %Qw = 1e5*eye(nx);%RMPCLMIParam.Qw
-    Qy = RMPCLMIParam.Qy;
-    Qw = RMPCLMIParam.Qw;% look down \|/
-    
-    
+    Qy = 1e0*eye(nu);%-3 *e0
+    Qw = 1e5*eye(nx);
+    %Qy = 1e4*eye(ny);
 
      %% MPC problem formulation
     %  objective function+ constraints init
@@ -67,9 +64,7 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model, RMPCLMIParam)
     B{3,1} = model.pred.Bd;
     C{3,1} = model.pred.Cd;
     
-    Qy = 1e9*eye(nu);%-3 *e0
-    Qw = C{3,1}'* C{3,1}*1e5;
-
+   
     
     % to organise the matrices for LMI 
     ZEROx = zeros(nx,nx);
@@ -118,7 +113,7 @@ for k = 1:1
             Y', W] >= 0 ]:['Lmi_L2_k=',int2str(k)]];
   end
         
-    wm=[280;280;280;280;280;280];% Slack variable to be used% and % ymax 
+    wm=[290;290;290;290;290;290];% Slack variable to be used% and % ymax 
 
     % LMI for output
     Lmi_output_max = [];
