@@ -67,9 +67,9 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model, RMPCLMIParam)
     A{2,1} = 0.9 * model.pred.Ad;% -10% for all
     B{2,1} = 0.9 * model.pred.Bd;
     C{2,1} = 0.9 * model.pred.Cd;
-    A{3,1} = 1.0 * model.pred.Ad;% nominal
-    B{3,1} = 1.0 * model.pred.Bd;
-    C{3,1} = 1.0 * model.pred.Cd;
+    A{3,1} = 1.O * model.pred.Ad;% nominal
+    B{3,1} = .9 * model.pred.Bd;
+    C{3,1} = .9 * model.pred.Cd;
     
    
 

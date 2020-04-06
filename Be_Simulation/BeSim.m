@@ -129,6 +129,7 @@ else   % initialize matrices for closed loop control simulations
     if  strcmp(model.buildingType,'Reno') ||  strcmp(model.buildingType,'Old') ||  strcmp(model.buildingType,'RenoLight')
          R = refs.R(SimStart:SimStop,:)';
     end
+    %R(:,1:32)=281.65*ones(6,32);%L2020R
     % above and below threshold comfort zone
     wa = refs.wa(SimStart:SimStop+N,:)';
     wb = refs.wb(SimStart:SimStop+N,:)';
@@ -213,7 +214,31 @@ end
 
 if ctrl.RMPCLMI.use
     
-%     initialize MPC diagnostics vectors
+    
+    %L2020
+%Finding steady state input Us and steady state states Xs
+%accoridng to Reference R(k) = CXs(k), Xs(k) =A Xs + B Us
+% Xss = AXss +BUss +E*d + Gd
+% yss=Ref = CXss + DUss + Fd
+% M^-1 * [Xss;USS] = [-(E*d + Gd);(R-Fd)]
+%first we create M^-1 which is a matrix [(A-I_nx) B ; C , D ]% if Nu!= Ny
+% D should work to make the matrix M square such that we have the inverse 
+
+M = inv([model.pred.Ad - eye(model.pred.nx), model.pred.Bd; model.pred.Cd, model.pred.Dd]);
+
+     R(:,1:32)=290.65*ones(6,32);%L2020R
+     R(:,97:96+32)=290.65*ones(6,32);%L2020R
+     R(:,2*96+1:32+2*96)=290.65*ones(6,32);%L2020R
+     R(:,3*96+1:32+3*96)=290.65*ones(6,32);%L2020R
+     R(:,4*96+1:32+4*96)=290.65*ones(6,32);%L2020R
+     R(:,5*96+1:32+5*96)=290.65*ones(6,32);%L2020R
+     R(:,6*96+1:32+6*96)=290.65*ones(6,32);%L2020R
+     
+%     model.pred.Ad = 1.2 * model.pred.Ad;% nominal
+%     model.pred.Bd = 1.2 * model.pred.Bd;% nominal
+%     model.pred.Cd = 1.2 * model.pred.Cd;% nominal
+% % % 
+%      %     initialize MPC diagnostics vectors
         if model.plant.nd == 0  %  no disturbnances option
              [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{X(:,1)}; % optimizer with estimated states
         else
@@ -258,20 +283,7 @@ PMVViol =  zeros(model.plant.ny,Nsim);
 PMVAboveViol =  zeros(model.plant.ny,Nsim); 
 PMVBelowViol =  zeros(model.plant.ny,Nsim); 
 
-   
-if ctrl.RMPCLMI.use
-%L2020
-%Finding steady state input Us and steady state states Xs
-%accoridng to Reference R(k) = CXs(k), Xs(k) =A Xs + B Us
-% Xss = AXss +BUss +E*d + Gd
-% yss=Ref = CXss + DUss + Fd
-% M^-1 * [Xss;USS] = [-(E*d + Gd);(R-Fd)]
-%first we create M^-1 which is a matrix [(A-I_nx) B ; C , D ]% if Nu!= Ny
-% D should work to make the matrix M square such that we have the inverse 
-
-M = inv([model.pred.Ad - eye(model.pred.nx), model.pred.Bd; model.pred.Cd, model.pred.Dd]);
-
-end
+ 
 
 %% ------ MAIN simulation loop ------
     % % ------ Verbose ------
@@ -407,7 +419,7 @@ for k = 1:Nsim
                     if model.plant.nd == 0  %  no disturbnances option
                          [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer(xe); % optimizer with estimated states
                     else
-                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer(round(xe,6)); % optimizer with estimated states
+                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer(xe); % optimizer with estimated states
                     end
                 else    % perfect state update
                     if model.plant.nd == 0  %  no disturbnances option

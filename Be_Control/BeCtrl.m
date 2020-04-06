@@ -152,7 +152,7 @@ else
     
 end   
     %  MPC optimizer synthesis   
-    [controller.RMPC.optimizer, controller.RMPC.constraints_info] = BeRMPCdesignDraft(model, controller.RMPC);
+    [controller.RMPC.optimizer, controller.RMPC.constraints_info] = BeRMPCdesign_1(model, controller.RMPC);
     fprintf('*** Done.\n')
     
     
@@ -179,8 +179,8 @@ else
     % weight diagonal matrices 
     controller.RMPCLMI.Qsb = 1e4*eye(model.pred.ny);
     controller.RMPCLMI.Qsa = 1e4*eye(model.pred.ny);
-    controller.RMPCLMI.Qw = 1e5*eye(model.pred.nx);%1e6 1e5*eye(nx)
-    controller.RMPCLMI.Qy = 1e0*eye(model.pred.nu);%1e1
+    controller.RMPCLMI.Qw = 1e-3*eye(model.pred.nx);%1e6 1e5*eye(nx)
+    controller.RMPCLMI.Qy = 1e3*eye(model.pred.nu);%1e1
 end   
     %  MPC optimizer synthesis   
     [controller.RMPCLMI.optimizer, controller.RMPCLMI.constraints_info] = BeRMPCLMIdesign(model, controller.RMPCLMI);

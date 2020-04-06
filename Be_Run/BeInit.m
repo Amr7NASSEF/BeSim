@@ -30,7 +30,7 @@ buildingType = 'Reno';
 % =========== 2, choose model order =================
 ModelParam.Orders.range = [4, 7, 10, 15, 20, 30, 40, 100];    % suggested = model orders for 'Reno', 'Old', 'RenoLight'
 % ModelParam.Orders.range = [100, 200, 600];                  % suggested model orders for 'Infrax', 'HollandschHuys'
-ModelParam.Orders.choice = 40;%'full'; % L2020 March 4 'full';                            % model order selection for prediction
+ModelParam.Orders.choice = 20;%'full'; % L2020 March 4 'full';                            % model order selection for prediction
 ModelParam.off_free = 0; %L2020 -change to 0 and observer the difference,                                      % augmented model with unmeasured disturbances
 ModelParam.reload = 0;                                        % if 1 reload ROM, if 0 load saved ROM
 
@@ -45,22 +45,25 @@ ModelParam.analyze.HSV = false;                      %  hankel singular values o
 ModelParam.analyze.frequency = false;                % frequency analysis - TODO
 
 % =========== 4, construct model structue =================
-model = BeModel(buildingType, ModelParam);      % construct a model object   
-model_Old = BeModel('Old', ModelParam);      % construct a model object   
 model_Light = BeModel('RenoLight', ModelParam);      % construct a model object   
+model_Reno = BeModel('Reno', ModelParam);      % construct a model object   
+model_Old = BeModel('Old', ModelParam);      % construct a model object   
+
+model = model_Light;      % construct a model for prediction   
+model_plant = model_Reno;      % construct a model for plant simulation   
 
 
 %% Disturbacnes 
 % ambient temperature, solar radiation, internal heat gains
 DistParam.reload = 0;
 
-dist = BeDist(model_Old, DistParam);        % construct a disturbances object 
+dist = BeDist(model, DistParam);        % construct a disturbances object 
 
 %% References 
 % comfort constraints, price profiles
 RefsParam.Price.variable = 0;       %1 =  variable price profile, 0 = fixed to 1
 
-refs = BeRefs(model_Old, dist, RefsParam);     % construct a references object  
+refs = BeRefs(model, dist, RefsParam);     % construct a references object  
 
 %% Estimator 
 EstimParam.SKF.use = 0;          % stationary KF
@@ -69,11 +72,11 @@ EstimParam.MHE.use = 0;          % moving horizon estimation via yalmip
 EstimParam.MHE.Condensing = 1;   % state condensing 
 EstimParam.use = 1;
 
-estim = BeEstim(model_Old, EstimParam);      % construct an estimator object  
+estim = BeEstim(model, EstimParam);      % construct an estimator object  
 
 %% Controller 
 CtrlParam.use = 1;   % 0 for precomputed u,y    1 for closed loop control
-CtrlParam.MPC.use = 1;%L2020 March 3 orignal = 1
+CtrlParam.MPC.use = 0;%L2020 March 3 orignal = 1
 CtrlParam.MPC.Condensing = 1;%L2020 March 3 orignal = 1
 CtrlParam.LaserMPC.use = 0;
 CtrlParam.LaserMPC.Condensing = 1;
@@ -82,16 +85,16 @@ CtrlParam.PID.use = 0;
 CtrlParam.MLagent.use = 0;
 CtrlParam.RMPC.use=0; %L2020 MUP USE 
 CtrlParam.RMPC.Condensing = 1;
-CtrlParam.RMPCLMI.use=0; %L2020 MUP USE 
+CtrlParam.RMPCLMI.use=1; %L2020 MUP USE 
 
 
-ctrl = BeCtrl(model_Old, CtrlParam);       % construct a controller object  
+ctrl = BeCtrl(model, CtrlParam);       % construct a controller object  
 
 %% Simulate
 % SimParam.run.start = 11;
 % SimParam.run.end = 17; 
-SimParam.run.start = 1;
-SimParam.run.end = 3; 
+SimParam.run.start =40;
+SimParam.run.end = 45; 
 SimParam.verbose = 1;
 SimParam.flagSave = 0;
 SimParam.comfortTol = 1e-1;
@@ -100,7 +103,7 @@ SimParam.profile = 0;  % profiler function for CPU evaluation
 
 % %  simulation file with embedded plotting file
 
-outdata = BeSim_2(model,model_Old, estim, ctrl, dist, refs, SimParam);
+outdata = BeSim(model_plant, estim, ctrl, dist, refs, SimParam);
 
 
 %% Diagnose the MPC problem via Yalmip optimize
