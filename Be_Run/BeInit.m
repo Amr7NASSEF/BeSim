@@ -30,7 +30,7 @@ buildingType = 'Reno';
 % =========== 2, choose model order =================
 ModelParam.Orders.range = [4, 7, 10, 15, 20, 30, 40, 100];    % suggested = model orders for 'Reno', 'Old', 'RenoLight'
 % ModelParam.Orders.range = [100, 200, 600];                  % suggested model orders for 'Infrax', 'HollandschHuys'
-ModelParam.Orders.choice = 20;%'full'; % L2020 March 4 'full';                            % model order selection for prediction
+ModelParam.Orders.choice = 30;%'full'; % L2020 March 4 'full';                            % model order selection for prediction
 ModelParam.off_free = 0; %L2020 -change to 0 and observer the difference,                                      % augmented model with unmeasured disturbances
 ModelParam.reload = 0;                                        % if 1 reload ROM, if 0 load saved ROM
 
@@ -87,14 +87,16 @@ CtrlParam.RMPC.use=0; %L2020 MUP USE
 CtrlParam.RMPC.Condensing = 1;
 CtrlParam.RMPCLMI.use=1; %L2020 MUP USE 
 
-
-ctrl = BeCtrl(model, CtrlParam);       % construct a controller object  
-
+if (CtrlParam.RMPCLMI.use)
+    ctrl = BeCtrl_1(model_Old,model_Reno,model_Light,CtrlParam); 
+else
+    ctrl = BeCtrl(model, CtrlParam);       % construct a controller object
+end
 %% Simulate
 % SimParam.run.start = 11;
 % SimParam.run.end = 17; 
-SimParam.run.start =40;
-SimParam.run.end = 45; 
+SimParam.run.start =1;
+SimParam.run.end = 1; 
 SimParam.verbose = 1;
 SimParam.flagSave = 0;
 SimParam.comfortTol = 1e-1;
@@ -103,7 +105,7 @@ SimParam.profile = 0;  % profiler function for CPU evaluation
 
 % %  simulation file with embedded plotting file
 
-outdata = BeSim(model_plant, estim, ctrl, dist, refs, SimParam);
+outdata = BeSim(model_Old, estim, ctrl, dist, refs, SimParam);
 
 
 %% Diagnose the MPC problem via Yalmip optimize

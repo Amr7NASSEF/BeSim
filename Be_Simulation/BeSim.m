@@ -240,9 +240,9 @@ M = inv([model.pred.Ad - eye(model.pred.nx), model.pred.Bd; model.pred.Cd, model
 % % % 
 %      %     initialize MPC diagnostics vectors
         if model.plant.nd == 0  %  no disturbnances option
-             [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{X(:,1)}; % optimizer with estimated states
+             [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{X(:,1),R(:,1)}; % optimizer with estimated states
         else
-             [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{Xp(:, 1)}; % optimizer with estimated states          
+             [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{Xp(:, 1),R(:,1)}; % optimizer with estimated states          
         end
         
         if (det(out{1,2})==0)
@@ -417,26 +417,26 @@ for k = 1:Nsim
 %                 
                 if estim.use   % estimated states
                     if model.plant.nd == 0  %  no disturbnances option
-                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer(xe); % optimizer with estimated states
+                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{xp, R(:,k)}}; % optimizer with estimated states
                     else
-                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer(xe); % optimizer with estimated states
+                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{xp, R(:,k)}}; % optimizer with estimated states
                     end
                 else    % perfect state update
                     if model.plant.nd == 0  %  no disturbnances option
-                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer(xe); % optimizer with estimated states
+                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{x0, R(:,k)}}; % optimizer with estimated states
                     else
-                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer(xe); % optimizer with measured states  
+                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{x0, R(:,k)}}; % optimizer with measured states  
                     end                 
                 end
                   MPC_options = ctrl.RMPCLMI.optimizer.options;
-                 
-                      if (det(out{1,2})==0) % to check singularity of W delete later 
-                           F = zeros(model.pred.nu,model.pred.nx);
-                      else
+%                  
+%                       if (det(out{1,2})==0) % to check singularity of W delete later 
+%                            F = zeros(model.pred.nu,model.pred.nx);
+%                       else
                            F = out{1,1} * (out{1,2})^-1;% Feedback gain.
-                      end
+                      %end
                    
-                          opt_out{1} = uss+ F*xe;    
+                          opt_out{1} = uss+F*xp;    
             end
                 
   

@@ -1,4 +1,4 @@
-function controller = BeCtrl(model, CtrlParam)
+function controller = BeCtrl(model1,model2,model3, CtrlParam)
 
 if nargin == 0
    buildingType = 'Infrax';  
@@ -160,7 +160,7 @@ elseif CtrlParam.RMPCLMI.use
     
     fprintf('*** Create LMI RMPC controller ... \n')
    
-if  strcmp(model.buildingType,'HollandschHuys')    
+if  strcmp(model1.buildingType,'HollandschHuys')    
      % horizons
     controller.RMPCLMI.N = 32;
     controller.RMPCLMI.Nc = 32;
@@ -177,13 +177,13 @@ else
     controller.RMPCLMI.Nrp = 22;
     controller.RMPCLMI.Ndp = 22;
     % weight diagonal matrices 
-    controller.RMPCLMI.Qsb = 1e2*eye(model.pred.ny);%10
-    controller.RMPCLMI.Qsa = 1e4*eye(model.pred.ny);
-    controller.RMPCLMI.Qw = 1e6*eye(model.pred.nx);%-3%1e6 1e5*eye(nx)
-    controller.RMPCLMI.Qy = 1e1*eye(model.pred.nu);%1e1
+    controller.RMPCLMI.Qsb = 1e2*eye(model1.pred.ny);%10
+    controller.RMPCLMI.Qsa = 1e4*eye(model1.pred.ny);
+    controller.RMPCLMI.Qw = 1e6*eye(model1.pred.nx);%-3%1e6 1e5*eye(nx)
+    controller.RMPCLMI.Qy = 1e1*eye(model1.pred.nu);%1e1
 end   
     %  MPC optimizer synthesis   
-    [controller.RMPCLMI.optimizer, controller.RMPCLMI.constraints_info] = BeRMPCLMIdesign(model, controller.RMPCLMI);
+    [controller.RMPCLMI.optimizer, controller.RMPCLMI.constraints_info] = BeRMPCLMIdesign(model1,model2,model3, controller.RMPCLMI);
     fprintf('*** Done.\n')
     
     

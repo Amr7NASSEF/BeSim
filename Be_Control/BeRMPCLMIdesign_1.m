@@ -1,18 +1,15 @@
-    % dimensions
-    nx = 20;
-    ny = 6;
-    nd = 44;
-    nu = 6;
+function [mpc, constraints_info] = BeRMPCLMIdesign_1(model, RMPCLMIParam)
+    %% MPC parameters
 
-    % horizons   
-    N = 2;   %  prediction horizon
-    Nc = 22; %  control horizon
-    Nrp = 22; % reference preview horizon
-    Ndp = 22; % disturbacne preview horizon
+    % dimensions
+    nx = model.pred.nx;
+    ny = model.pred.ny;
+    nd = model.pred.nd;
+    nu = model.pred.nu;
 
     % variables
     x = sdpvar(nx, 1, 'full'); % states of the building
-    d_prev = sdpvar(nd, Ndp, 'full'); % disturbances with preview
+    %d_prev = sdpvar(nd, Ndp, 'full'); % disturbances with preview
     % u = sdpvar(nu,   N, 'full'); % u = F * x
     % F = sdpvar(nu,nx*N, 'full'); % F = Y * W^-1
     W = sdpvar(nx,nx, 'symmetric'); % F = Y * W^-1  where W > 0 and Y are obtained from the solution (if it exists) to the following linear objective minimization min Gamma
@@ -21,33 +18,38 @@
     
     %U_Cons = sdpvar(nu,nu*N);% variable to handle input constraints 
     Gamma = sdpvar(1,1);% minimize Gamma
-
+      
    %%
+     %%
     s = sdpvar(ny, 1, 'full'); %  general slack
-    y = sdpvar(ny, N, 'full'); % output = indoor temperatures [degC]
+    y = sdpvar(ny, 1, 'full'); % output = indoor temperatures [degC]
     r = sdpvar(ny, 1, 'full'); %refernce
     slack1 = sdpvar(1,1);
     
     % above and below threshold -- dynamic comfort zone 
     wa_prev = sdpvar(ny, 1, 'full');
-    wb_prev = sdpvar(ny, Nrp, 'full');
+%    wb_prev = sdpvar(ny, Nrp, 'full');
     
     % variable energy price profile
     
-    price = sdpvar(1, Nrp, 'full');
+    %price = sdpvar(1, Nrp, 'full');
     
     % weight diagonal matrices 
-    %Qsb = eye(ny);
+    Qsb = RMPCLMIParam.Qy;
     %Qsa = eye(ny);
-   
-    %Qy = 1e4*eye(ny);
- 
+    %Qy = 1e0*eye(nu);%-3 *e0RMPCLMIParam.Qy
+    %Qw = 1e5*eye(nx);%RMPCLMIParam.Qw
+    Qy = RMPCLMIParam.Qy;
+    Qw = RMPCLMIParam.Qw;
+    
+    
 
-    %% MPC problem formulation
+    
+
+     %% MPC problem formulation
     %  objective function+ constraints init
     obj = 0;
     con = [];
-    ZERO=0;
     
     %
     nv=3; % number of vertices 
@@ -60,15 +62,7 @@
     A{3,1} = model.pred.Ad;% nominal
     B{3,1} = model.pred.Bd;
     C{3,1} = model.pred.Cd;
-
     
-    Qy = 1e-5*eye(nu);%-3 *e0
-    Qw = 1e16*eye(nx);%C{3,1}'* C{3,1}*1e1 % -2 % 1e-2*eye(nu)
-    Qsb= 1e2*eye(ny);
-    
-    % sqrt qw will go to 10^-3 
-    %1e0*eye(nx)
-    %C{3,1}'* C{3,1}*1e5; perfect mosek 
     
     % to organise the matrices for LMI 
     ZEROx = zeros(nx,nx);
@@ -76,11 +70,11 @@
     ZEROxu = zeros(nx,nu);
     Ix = eye(nx);
     Iu = eye(nu);
-% comfort zone and price preview 
-
-
-
-for k = 1:1 
+ 
+    Qy = 1e-5*eye(nu);%-3 *e0
+    Qw = 1e16*eye(nx);%C{3,1}'* C{3,1}*1e1 % -2 % 1e-2*eye(nu)
+    Qsb= 1e2*eye(ny);
+ for k = 1:1 
 
 
 
@@ -174,67 +168,25 @@ con = con + Lmi_Lyap + Lmi_rie + Lmi_convix + Lmi_u_max + Lmi_output_max;
                             
     end
 
-        options = sdpsettings('verbose', 1, 'solver','mosek');%,'gurobi.TimeLimit',50);
-        
-        sol = optimize(con,obj, options);
-        solver = optimizer(con,obj, options,{x(:,1),r},{Y(:,1:nx),W(:,1:nx)});
+        opts = sdpsettings('verbose', 1, 'solver','mosek');%,'gurobi.TimeLimit',50); 
+        sol = optimize(con,obj, opts);
+        solver = optimizer(con,obj, opts,{x(:,1),r},{Y(:,1:nx),W(:,1:nx)});
         mpc=solver;
+
+%      information about constraints size and type
+     constraints_info.con = con;
+     constraints_info.size = size(con);
+     constraints_info.i_length = NaN(length(con),1);
+     constraints_info.equality = is(con,'equality'); 
         
-        
-        
-        
-        
-         output=solver{{zeros(20,1),[295;295;295;295;295;295]}};
+    for k = 1:length(con) 
+        constraints_info.i_length(k) = length(double(con(k)));       
+    end
+
+         output=solver{{zeros(20,1),[296.65;296.65;296.65;296.65;296.65;296.65]}};
          yy=output{1,1};
          ww=output{1,2};
-%         gg=output{1,3};
- %        SSS=output{1,4};
+%        gg=output{1,3};
+%        SSS=output{1,4};
          F=yy*ww^-1
-  %       value (slack1)
-         
-         
-         
-         vv= [       -0.0047
-   -0.0121
-   -0.0047
-   -0.0066
-   -0.0027
-    0.0035
-    0.0014
-   -0.0013
-    0.0013
-    0.0003
-    0.0014
-    0.0089
-   -0.0027
-    0.0021
-   -0.0018
-   -0.0035
-   -0.0005
-   -0.0020
-   -0.0011
-    0.0014];
-
-DD=[    0.0245
-    0.1304
-    0.5050
-   -0.8184
-   -1.0655
-    0.3822
-    0.3337
-    0.3502
-   -0.7443
-   -2.9816];
-% 
-%    output1=solver(DD);
-
-%          yy1=output1{1,1};
-%          ww1=output1{1,2};
-%          gg1=output{1,3};
-%          SSS1=output{1,4};
-%          
-%          F1=yy1*ww1^-1
-%          
-%          
-  
-
+end
