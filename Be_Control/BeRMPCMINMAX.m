@@ -173,7 +173,7 @@ for k = 1:N
          con = con + [ (0*ones(model.pred.ny,1)<=s(:,k)):['nonnegative_slacks_k=',int2str(k)] ];  
        
         %   uncertainty constraints 
-         G = G + [ - 140<= W(:,k) <= 140];
+         G = G + [ 0<= W(:,k) <= 30];
 
     %   -------------  OBJECTIVE FUNCTION  -------------
         %    % quadratic objective function withouth states constr.  penalisation
@@ -183,11 +183,7 @@ for k = 1:N
         if k>=2                             
          obj=obj + norm(u(:,k) - u(:,k-1),1);
         end
-        
-        
-        
-        
-       
+  
                               
                              % obj = obj + s(:,k)'*Qsb*s(:,k) +V(:,k)'*Qu*V(:,k);
                                      %  quadratic penalization of ctrl action move blocking formulation

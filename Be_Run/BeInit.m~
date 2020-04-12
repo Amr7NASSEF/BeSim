@@ -52,7 +52,7 @@ model_Old = BeModel('Old', ModelParam);      % construct a model object
 model = model_Old;      % construct a model for prediction   
 model_plant = model_Light;      % construct a model for plant simulation 
 
-%model.pred.umax = model_Old.pred.umax;
+model.pred.umax = model_Old.pred.umax;
 
 
 %% Disturbacnes 
@@ -107,9 +107,9 @@ SimParam.profile = 0;  % profiler function for CPU evaluation
 
 % %  simulation file with embedded plotting file
 
-outdata = BeSim(model, estim, ctrl, dist, refs, SimParam);
+%outdata = BeSim(model, estim, ctrl, dist, refs, SimParam);
 
-%outdata = BeSim_2(model_plant,model, estim, ctrl, dist, refs, SimParam);
+outdata = BeSim_2(model_plant,model, estim, ctrl, dist, refs, SimParam);
 
 
 %% Diagnose the MPC problem via Yalmip optimize

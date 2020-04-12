@@ -152,7 +152,7 @@ u = sdpvar(nu, Nc, 'full'); % ctrl action - heat commanded by the thermostat [W]
          con = con + [ (0*ones(model.pred.ny,1)<=s(:,k)):['nonnegative_slacks_k=',int2str(k)] ];
          
          %% March 2020
-         G= G+[ - 50 <= W(k,:)' <=  50 ];% keep the values as it's 
+         G= G+[ -10 <= W(k,:)' <=  10 ];% keep the values as it's 
          
          
     %   -------------  OBJECTIVE FUNCTION  -------------

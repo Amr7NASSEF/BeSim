@@ -51,9 +51,9 @@
     
     %
     nv=3; % number of vertices 
-    A{1,1} = 0.8 * model.pred.Ad;% +10% for all
-    B{1,1} = 0.8 * model.pred.Bd;
-    C{1,1} = 0.8 * model.pred.Cd;
+    A{1,1} = 1.1 * model.pred.Ad;% +10% for all
+    B{1,1} = 1.1 * model.pred.Bd;
+    C{1,1} = 1.1 * model.pred.Cd;
     A{2,1} = 0.9 * model.pred.Ad;% -10% for all
     B{2,1} = 0.9 * model.pred.Bd;
     C{2,1} = 0.9 * model.pred.Cd;
@@ -63,8 +63,8 @@
 
     
     Qy = 1e-5*eye(nu);%-3 *e0
-    Qw = 1e16*eye(nx);%C{3,1}'* C{3,1}*1e1 % -2 % 1e-2*eye(nu)
-    Qsb= 1e2*eye(ny);
+    Qw = 1e6*eye(nx);%C{3,1}'* C{3,1}*1e1 % -2 % 1e-2*eye(nu)
+    Qsb= 1e0*eye(ny);
     
     % sqrt qw will go to 10^-3 
     %1e0*eye(nx)
@@ -159,13 +159,16 @@ for k = 1:1
         Lmi_output_max = Lmi_output_max + lmi_output_max_item;
         end 
     end
-    
-    
+%    %con = con + [(0<=s(i,1)):['nonnegative_slacks_k=',int2str(i)] ]; 
+%      con = con + [(290<=( C{1,1}*x )<=300):['Output1']];
+%      con = con + [(290<=( C{2,1}*x )<=300):['Output2']];
+%     con = con + [(290<=( C{3,1}*x )<=300):['Output3']];
+%                            
 % Constraints
 con = con + Lmi_Lyap + Lmi_rie + Lmi_convix + Lmi_u_max + Lmi_output_max;
    
     %   -------------  OBJECTIVE FUNCTION  -------------
-                           % obj = obj  + Gamma; 
+                            obj = obj  +Gamma; 
                             
                             
                             obj = obj +(r - C{1,1}*x )' * Qsb * (r - C{1,1}*x);
@@ -174,18 +177,23 @@ con = con + Lmi_Lyap + Lmi_rie + Lmi_convix + Lmi_u_max + Lmi_output_max;
                             
     end
 
-        options = sdpsettings('verbose', 1, 'solver','mosek');%,'gurobi.TimeLimit',50);
+        options = sdpsettings('verbose', 1, 'solver','sedumi');%,'gurobi.TimeLimit',50);
         
-        sol = optimize(con,obj, options);
+       % sol = optimize(con,obj, options);
+%         UsedInObjective = recover(depends(obj));
+%         optimize([con, -1000000 <= UsedInObjective <= 1000000] ,obj)
+%         value(UsedInObjective)
+%         
         solver = optimizer(con,obj, options,{x(:,1),r},{Y(:,1:nx),W(:,1:nx)});
         mpc=solver;
         
         
         
+
         
         
-         output=solver{{zeros(20,1),[295;295;295;295;295;295]}};
-         yy=output{1,1};
+         output=solver{{ones(20,1),[295;295;295;295;295;295]}};
+         yy=double(output{1,1});
          ww=output{1,2};
 %         gg=output{1,3};
  %        SSS=output{1,4};
@@ -235,6 +243,52 @@ DD=[    0.0245
 %          
 %          F1=yy1*ww1^-1
 %          
-%          
+%         
+
+R=refs.R';
+model2=model;
+    M = inv([model2.pred.Ad - eye(model2.pred.nx), model2.pred.Bd; model2.pred.Cd, model2.pred.Dd]);
+                
+                
   
+
+RR=R(:,34:96*7+33);
+
+D = dist.d(1:96*7,:)';
+for k= 1 : 96*7
+    d0 = D(:,k);
+    SS(:,k)= M *[-(model2.pred.Ed*d0+model2.pred.Gd); [R(:,k) - model2.pred.Fd]];
+end
+xss = SS(1:model2.pred.nx,:);
+uss = SS(model2.pred.nx+1:end,:);
+for k= 1 : 96*7
+    d0 = D(:,k);
+    SSS(:,k)= M *[-(model2.pred.Ed*d0+model2.pred.Gd); [[297;297;297;297;297;297] - model2.pred.Fd]];
+end
+
+xsss = SSS(1:model2.pred.nx,:);
+usss = SSS(model2.pred.nx+1:end,:);
+
+
+
+figure
+plot(t,uss,'r')
+hold on
+plot(t,usss,'b-.')
+
+figure 
+plot(t,R(:,1:96*7),'r')
+
+
+
+
+283.98
+
+
+
+s=rng;
+W=mean(dist.d(:,41)-normrnd(mean(dist.d(:,41)),var(dist.d(:,41)),1,600);
+
+
+
 

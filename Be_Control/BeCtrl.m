@@ -152,13 +152,18 @@ else
     
 end   
     %  MPC optimizer synthesis   
-    [controller.RMPC.optimizer, controller.RMPC.constraints_info] = BeRMPCdesign_1(model, controller.RMPC);
+    [controller.RMPC.optimizer, controller.RMPC.constraints_info] = BeRMPCMINMAX(model, controller.RMPC);
     fprintf('*** Done.\n')
     
     
 elseif CtrlParam.RMPCLMI.use  
     
     fprintf('*** Create LMI RMPC controller ... \n')
+    
+    model_Light = BeModel('RenoLight', ModelParam);      % construct a model object   
+    model_Reno = BeModel('Reno', ModelParam);      % construct a model object   
+    model_Old = BeModel('Old', ModelParam);      % construct a model object   
+    
    
 if  strcmp(model.buildingType,'HollandschHuys')    
      % horizons

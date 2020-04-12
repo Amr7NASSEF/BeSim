@@ -17,7 +17,7 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model1,model2,model3, RMPCLMI
     Y = sdpvar(nu,nx, 'full'); % from the above equation.
     
     %U_Cons = sdpvar(nu,nu*N);% variable to handle input constraints 
-    Gamma = sdpvar(1,1);% minimize Gamma
+    Gamma = sdpvar(1,nx);% minimize Gamma or (1,1)
       
    %%
      %%
@@ -35,10 +35,7 @@ function [mpc, constraints_info] = BeRMPCLMIdesign(model1,model2,model3, RMPCLMI
     %price = sdpvar(1, Nrp, 'full');
     
     % weight diagonal matrices 
-    Qsb = RMPCLMIParam.Qy;
-    %Qsa = eye(ny);
-    %Qy = 1e0*eye(nu);%-3 *e0RMPCLMIParam.Qy
-    %Qw = 1e5*eye(nx);%RMPCLMIParam.Qw
+    Qsb = RMPCLMIParam.Qsb;
     Qy = RMPCLMIParam.Qy;
     Qw = RMPCLMIParam.Qw;
     
@@ -89,36 +86,36 @@ for k = 1:1
     end 
 
 % LMI for input       
-    Lmi_u_max = [];
-    if(isempty(model1.pred.umax) == 0)
-        % L2-norm
-        Lmi_u_max = [ [[ diag(model1.pred.umax.^2), Y;...
-            Y', W] >= 0 ]:['Lmi_L2_k=',int2str(k)]];
-  end
-        
-    wm=[290;290;290;290;290;290];% Slack variable to be used% and % ymax 
-
-    % LMI for output
-    Lmi_output_max = [];
-    if(isempty(wm) == 0)
-        
-         for(i=1:6)
-         con = con + [(0<=s(i,1)):['nonnegative_slacks_k=',int2str(i)] ]; 
-         end
+%     Lmi_u_max = [];
+%     if(isempty(model1.pred.umax) == 0)
+%         % L2-norm
+%         Lmi_u_max = [ [[ diag(model1.pred.umax.^2), Y;...
+%             Y', W] >= 0 ]:['Lmi_L2_k=',int2str(k)]];
+%   end
 %         
-        for v = 1 : nv
-           
-        lmi_output_max_item = [[ 
-            [ W,(A{v}*W + B{v}*Y)'*C{v}' ;...
-            C{v}*(A{v}*W + B{v}*Y), diag((wm.^2)+s) ] >= 0] :['Lmi_Y_k=',int2str(k)]  ];% adding slack variable to the output y 
-        
-        Lmi_output_max = Lmi_output_max + lmi_output_max_item;
-        end 
-    end
+%     wm=[290;290;290;290;290;290];% Slack variable to be used% and % ymax 
+% 
+%     % LMI for output
+%     Lmi_output_max = [];
+%     if(isempty(wm) == 0)
+%         
+%          for(i=1:6)
+%          con = con + [(0<=s(i,1)):['nonnegative_slacks_k=',int2str(i)] ]; 
+%          end
+% %         
+%         for v = 1 : nv
+%            
+%         lmi_output_max_item = [[ 
+%             [ W,(A{v}*W + B{v}*Y)'*C{v}' ;...
+%             C{v}*(A{v}*W + B{v}*Y), diag((wm.^2)+s) ] >= 0] :['Lmi_Y_k=',int2str(k)]  ];% adding slack variable to the output y 
+%         
+%         Lmi_output_max = Lmi_output_max + lmi_output_max_item;
+%         end 
+%     end
     
     
 % Constraints
-con = con + Lmi_Lyap + Lmi_rie + Lmi_convix + Lmi_u_max + Lmi_output_max;
+con = con + Lmi_Lyap + Lmi_rie + Lmi_convix ; %+ Lmi_u_max + Lmi_output_max;
    
     %   -------------  OBJECTIVE FUNCTION  -------------
                          obj = Gamma;
