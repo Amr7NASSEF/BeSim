@@ -259,13 +259,13 @@ ymax = ymaxred - model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd;
              u = Uss + F*Xe;
              opt_out{1} = u;
 
-%      R(:,1:32)=290.65*ones(6,32);%L2020R
-%      R(:,97:96+32)=290.65*ones(6,32);%L2020R
-%      R(:,2*96+1:32+2*96)=290.65*ones(6,32);%L2020R
-%      R(:,3*96+1:32+3*96)=290.65*ones(6,32);%L2020R
-%      R(:,4*96+1:32+4*96)=290.65*ones(6,32);%L2020R
-%      R(:,5*96+1:32+5*96)=290.65*ones(6,32);%L2020R
-%      R(:,6*96+1:32+6*96)=290.65*ones(6,32);%L2020R
+     R(:,1:32)=290.65*ones(6,32);%L2020R
+     R(:,97:96+32)=290.65*ones(6,32);%L2020R
+     R(:,2*96+1:32+2*96)=290.65*ones(6,32);%L2020R
+     R(:,3*96+1:32+3*96)=290.65*ones(6,32);%L2020R
+     R(:,4*96+1:32+4*96)=290.65*ones(6,32);%L2020R
+     R(:,5*96+1:32+5*96)=290.65*ones(6,32);%L2020R
+     R(:,6*96+1:32+6*96)=290.65*ones(6,32);%L2020R
 
  
 end
@@ -426,9 +426,9 @@ for k = 1:Nsim
                 Price_prev = Price(:, k:k+(ctrl.RMPCLMI.Nrp-1));
                 
                 %Steady state conditions:
-                re=295*ones(model.pred.ny,1);
-                Xss = M1 * [-(model.pred.Ed*d0 + model.pred.Gd); [re - model.pred.Fd]];
-                Uss = M2 * [-(model.pred.Ed*d0 + model.pred.Gd); [re - model.pred.Fd]];
+                re=293*ones(model.pred.ny,1);
+                Xss = M1 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
+                Uss = M2 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
                 
                 if estim.use  %  no disturbnances option
                     Xe = xp - Xss;% X(:,1): zeros
@@ -439,27 +439,22 @@ for k = 1:Nsim
                 u = zeros(model.pred.nu,1);
                 Ue = u - Uss;%
                 
-                ymaxred = wa(:,k);% L4 maybe use wb
-                ymaxred = 300*ones(model.pred.ny,1);
+                ymaxred = wb(:,k);% L4 maybe use wb
+                %ymaxred = 300*ones(model.pred.ny,1);
                 
                 umax = model.pred.umax - Uss;
                 ymax = ymaxred - model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd;
                 
  
                 %     initialize LMI MPC diagnostics vectors
-                if k==1
-                    [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{Xe,umax,ymax}}; % optimizer with estimated states
-                    u = Uss + F*Xe;
-                else
-                    [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{xe,umax,ymax}}; % optimizer with estimated states
-                    u = Uss + F*xe;
-                end
+                [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{Xe,umax,ymax}}; % optimizer with estimated states
+                
                 Ynew = solutions{1};
                 Qnew = solutions{2};
                 gamma = solutions{3};
                 F = Ynew*inv(Qnew);
                 
-                %u = Uss + F*Xe;
+                u = Uss + F*Xe;
                 opt_out{1} = u;                
                 MPC_options = ctrl.RMPCLMI.optimizer.options;
                 
@@ -574,9 +569,9 @@ for k = 1:Nsim
 % TODO standalone functions?
     if estim.use 
         if estim.SKF.use  % stationary KF
-%             if ctrl.RMPCLMI.use
-%                 xe = xp;
-%             else
+            %if ctrl.RMPCLMI.use
+             %   xe = xp;
+            %else
             % measurement update                              
             yp = model.pred.Cd*xp + model.pred.Dd*uopt + model.pred.Fd*1;          % output estimation
             ep = yn - yp;                                                       % estimation error
