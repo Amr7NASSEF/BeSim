@@ -259,13 +259,13 @@ ymax = ymaxred - model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd;
              u = Uss + F*Xe;
              opt_out{1} = u;
 
-     R(:,1:32)=290.65*ones(6,32);%L2020R
-     R(:,97:96+32)=290.65*ones(6,32);%L2020R
-     R(:,2*96+1:32+2*96)=290.65*ones(6,32);%L2020R
-     R(:,3*96+1:32+3*96)=290.65*ones(6,32);%L2020R
-     R(:,4*96+1:32+4*96)=290.65*ones(6,32);%L2020R
-     R(:,5*96+1:32+5*96)=290.65*ones(6,32);%L2020R
-     R(:,6*96+1:32+6*96)=290.65*ones(6,32);%L2020R
+%      R(:,1:32)=290.65*ones(6,32);%L2020R
+%      R(:,97:96+32)=290.65*ones(6,32);%L2020R
+%      R(:,2*96+1:32+2*96)=290.65*ones(6,32);%L2020R
+%      R(:,3*96+1:32+3*96)=290.65*ones(6,32);%L2020R
+%      R(:,4*96+1:32+4*96)=290.65*ones(6,32);%L2020R
+%      R(:,5*96+1:32+5*96)=290.65*ones(6,32);%L2020R
+%      R(:,6*96+1:32+6*96)=290.65*ones(6,32);%L2020R
 
  
 end
@@ -304,9 +304,10 @@ reverseStr = '';
 start_t = clock;
 
 %W = mean(dist.d(:,41)) - normrnd(mean(dist.d(1:Nsim,41)),0.5*var(dist.d(1:Nsim,41)),1,Nsim);
-W = mean(dist.d(:,41)) - normrnd(mean(dist.d(1:Nsim,41)),0.5*var(dist.d(1:Nsim,41)),1,Nsim);
+W = mean(D(41,1:Nsim)) - normrnd(mean(D(41,1:Nsim)),0.5*var(D(41,1:Nsim)),1,Nsim);
 
 %W =  normrnd(mean(dist.d(:,41)),var(dist.d(:,41)),1,Nsim);
+hold on
 tt=(1:Nsim)*model.plant.Ts/3600/24;
 plot(tt,W); 
 title('Ambient Temperature Disturbance');

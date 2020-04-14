@@ -85,7 +85,7 @@ con =  Lmi_Lyap +  Lmi_convix + Lmi_rie + Lmi_u_max + Lmi_output_max + con;
 
 %%   -------------  Optimizer  -------------
 
-        options = sdpsettings('verbose', 1, 'solver','sedumi');       
+        options = sdpsettings('verbose', 1, 'solver','mosek');       
         mpc = optimizer(con,obj, options,{x,umax,ymax},{Y,W,Gamma});
              
 %    information about constraints size and type

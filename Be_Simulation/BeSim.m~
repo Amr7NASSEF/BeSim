@@ -51,7 +51,7 @@ end
 fprintf('\n------------------ Simulation Setup -----------------\n');
 
 fprintf('*** Building Type = %s\n' , model.buildingType);
-fprintf('*** Prediction model order = %d, \n',   size(model.pred.Ad,1))
+fprintf('*** r order = %d, \n',   size(model.pred.Ad,1))
 fprintf('*** Start day = %d , End day = %d \n', SimParam.run.start, SimParam.run.end);
 
 % Simulation steps   
@@ -84,6 +84,10 @@ elseif ctrl.MLagent.use
 elseif ctrl.RMPC.use
         N = ctrl.RMPC.N;
         Nrp = ctrl.RMPC.Nrp;
+
+elseif ctrl.RMPCLMI.use
+        N = ctrl.RMPCLMI.N;
+        Nrp = ctrl.RMPCLMI.Nrp;
 else
         N = 0;
         Nrp = 0;
@@ -92,6 +96,7 @@ end
 % state disturbacne trajectories
 X = zeros(model.plant.nx,Nsim+1);
 D = dist.d(SimStart:SimStop+N,:)';
+
 
 % diagnostics
 StepTime = zeros(1,Nsim); 
@@ -125,6 +130,7 @@ else   % initialize matrices for closed loop control simulations
     if  strcmp(model.buildingType,'Reno') ||  strcmp(model.buildingType,'Old') ||  strcmp(model.buildingType,'RenoLight')
          R = refs.R(SimStart:SimStop,:)';
     end
+    %R(:,1:32)=281.65*ones(6,32);%L2020R
     % above and below threshold comfort zone
     wa = refs.wa(SimStart:SimStop+N,:)';
     wb = refs.wb(SimStart:SimStop+N,:)';
@@ -178,6 +184,7 @@ if ctrl.MPC.use
              [opt_out, feasible, info1, info2, info3, info4] =  ctrl.MPC.optimizer{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
         else
              [opt_out, feasible, info1, info2, info3, info4] =  ctrl.MPC.optimizer{{Xp(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
+       
         end
  
 end
@@ -195,19 +202,78 @@ if ctrl.LaserMPC.use
 end
 
 if ctrl.RMPC.use
+    
 %     initialize MPC diagnostics vectors
         if model.plant.nd == 0  %  no disturbnances option
+             
              [opt_out, feasible, info1, info2, info3, info4] =  ctrl.RMPC.optimizer{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
         else
              [opt_out, feasible, info1, info2, info3, info4] =  ctrl.RMPC.optimizer{{Xp(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
         end
  
 end
+
+if ctrl.RMPCLMI.use
+    
+%L2020
+%Finding steady state input Us and steady state states Xs
+%accoridng to Reference R(k) = CXs(k), Xs(k) =A Xs + B Us
+% Xss = AXss +BUss +E*d + Gd
+% yss=Ref = CXss + DUss + Fd
+% M^-1 * [Xss;USS] = [-(E*d + Gd);(R-Fd)]
+%first we create M^-1 which is a matrix [(A-I_nx) B ; C , D ]% if Nu!= Ny
+% D should work to make the matrix M square such that we have the inverse     
+    
+    
+u = zeros(model.pred.nu,1);
+
+M   = inv([[model.pred.Ad - eye(model.pred.nx)], model.pred.Bd; model.pred.Cd, model.pred.Dd]);
+M1  = M(1:model.pred.nx,:);
+M2  = M(model.pred.nx+1:end,:);    
+Xss = M1 * [-(model.pred.Ed*D(:,1) + model.pred.Gd); [R(:,1) - model.pred.Fd]];
+Uss = M2 * [-(model.pred.Ed*D(:,1) + model.pred.Gd); [R(:,1) - model.pred.Fd]];
+ 
+        if model.plant.nd == 0  %  no disturbnances option
+          Xe = X(:,1) - Xss;% X(:,1): zeros   
+        else
+          Xe = Xp(:,1) - Xss;% X(:,1): zeros 
+        end
+
+Ue = u - Uss;% 
+
+ymaxred = wa(:,1);% L4 maybe use wb
+
+umax = model.pred.umax - Uss;
+ymax = ymaxred - model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd; 
+
+
+
+      %     initialize LMI MPC diagnostics vectors
+             [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{Xe,umax,ymax}}; % optimizer with estimated states
+             
+             Ynew = solutions{1};
+             Qnew = solutions{2};
+             gamma = solutions{3};
+             F = Ynew*inv(Qnew);
+             
+             u = Uss + F*Xe;
+             opt_out{1} = u;
+
+%      R(:,1:32)=290.65*ones(6,32);%L2020R
+%      R(:,97:96+32)=290.65*ones(6,32);%L2020R
+%      R(:,2*96+1:32+2*96)=290.65*ones(6,32);%L2020R
+%      R(:,3*96+1:32+3*96)=290.65*ones(6,32);%L2020R
+%      R(:,4*96+1:32+4*96)=290.65*ones(6,32);%L2020R
+%      R(:,5*96+1:32+5*96)=290.65*ones(6,32);%L2020R
+%      R(:,6*96+1:32+6*96)=290.65*ones(6,32);%L2020R
+
+ 
+end
     
 
-if ctrl.MPC.use || ctrl.LaserMPC.use || ctrl.RMPC.use
+if ctrl.MPC.use || ctrl.LaserMPC.use || ctrl.RMPC.use || ctrl.RMPCLMI.use
     OBJ =  zeros(1,Nsim);            %  MPC objective function
-    constr_nr = sum(ctrl.RMPC.constraints_info.i_length);  % total number of constraints
+    %constr_nr = sum(ctrl.MPC.constraints_info.i_length);  % total number of constraints % L2020 RMPC instead of MPC
     DUALS = zeros(length(info4.Dual),Nsim);  %  MPC dual variables for constraints
     PRIMALS = zeros(length(info4.Primal) ,Nsim); 
     
@@ -227,7 +293,7 @@ PMVViol =  zeros(model.plant.ny,Nsim);
 PMVAboveViol =  zeros(model.plant.ny,Nsim); 
 PMVBelowViol =  zeros(model.plant.ny,Nsim); 
 
-   
+ 
 
 %% ------ MAIN simulation loop ------
     % % ------ Verbose ------
@@ -236,6 +302,17 @@ fprintf('\n---------------- Simulation Running -----------------');
 reverseStr = '';
 
 start_t = clock;
+
+%W = mean(dist.d(:,41)) - normrnd(mean(dist.d(1:Nsim,41)),0.5*var(dist.d(1:Nsim,41)),1,Nsim);
+W = mean(dist.d(:,41)) - normrnd(mean(dist.d(1:Nsim,41)),0.5*var(dist.d(1:Nsim,41)),1,Nsim);
+
+W =  normrnd(mean(dist.d(:,41)),var(dist.d(:,41)),1,Nsim);
+tt=(1:Nsim)*model.plant.Ts/3600/24;
+plot(tt,W); 
+title('Ambient Temperature Disturbance');
+ylabel('Temp [K]')%[^{\circ}C]'
+xlabel('time [days]')%
+WW =zeros(44,1);
 
 for k = 1:Nsim
     
@@ -259,7 +336,7 @@ for k = 1:Nsim
         elseif ctrl.PID.use
 %             TODO - implementation
             
-        elseif ctrl.MPC.use || ctrl.LaserMPC.use  || ctrl.RMPC.use      
+        elseif ctrl.MPC.use || ctrl.LaserMPC.use  || ctrl.RMPC.use  || ctrl.RMPCLMI.use    
             
             if ctrl.MPC.use
     %             TODO: predictions as standalone function
@@ -337,24 +414,65 @@ for k = 1:Nsim
                     end                 
                 end
                   MPC_options = ctrl.RMPC.optimizer.options;
+                  
+           elseif ctrl.RMPCLMI.use
+    %             TODO: predictions as standalone function
+                % preview of disturbance signals on the prediction horizon
+                Dpreview = D(:, k:k+(ctrl.RMPCLMI.Ndp-1));   
+                % preview of thresholds on the prediction horizon - Dynamic comfort zone
+                wa_prev = wa(:, k:k+(ctrl.RMPCLMI.Nrp-1));
+                wb_prev = wb(:, k:k+(ctrl.RMPCLMI.Nrp-1));
+                % preview of the price signal
+                Price_prev = Price(:, k:k+(ctrl.RMPCLMI.Nrp-1));
+                
+                %Steady state conditions:
+                re=293*ones(model.pred.ny,1);
+                Xss = M1 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
+                Uss = M2 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
+                
+                if estim.use  %  no disturbnances option
+                    Xe = xp - Xss;% X(:,1): zeros
+                else
+                    Xe = x0 - Xss;% X(:,1): zeros
+                end
+                 
+                u = zeros(model.pred.nu,1);
+                Ue = u - Uss;%
+                
+                ymaxred = wb(:,k);% L4 maybe use wb
+                %ymaxred = 300*ones(model.pred.ny,1);
+                
+                umax = model.pred.umax - Uss;
+                ymax = ymaxred - model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd;
+                
+ 
+                %     initialize LMI MPC diagnostics vectors
+                [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{Xe,umax,ymax}}; % optimizer with estimated states
+                
+                Ynew = solutions{1};
+                Qnew = solutions{2};
+                gamma = solutions{3};
+                F = Ynew*inv(Qnew);
+                
+                u = Uss + F*Xe;
+                opt_out{1} = u;                
+                MPC_options = ctrl.RMPCLMI.optimizer.options;
+                
             end
                 
-            
- 
-            
-            
+  
 %             %     feasibility check
            %     feasibility check
             if ~ismember(feasible, [0 3 4 5])
                 k
-                error('infeasible')      
+               error('infeasible')      
             else
                 uopt = opt_out{1};   % optimal control action
-                OBJ(k) =  opt_out{2};   % objective function value   
+%                OBJ(k) =  opt_out{2};   % objective function value   
 %                 DUALS(:,k) = info2{1};    % dual variables
-                DUALS(:,k) = info4.Dual; % dual variables values
-                PRIMALS(:,k) = info4.Primal; % primal variables values             
-                SolverTime(k) = info4.solvertime;  %  elapsed solver time of one MPC step               
+%                DUALS(:,k) = info4.Dual; % dual variables values
+ %               PRIMALS(:,k) = info4.Primal; % primal variables values             
+  %              SolverTime(k) = info4.solvertime;  %  elapsed solver time of one MPC step               
                 if strcmp(MPC_options.solver,'+quadprog')
                     ITERS(:,k) = info4.solveroutput.output.iterations;
                     INEQLIN(:,k) = info4.solveroutput.lambda.ineqlin;
@@ -426,7 +544,14 @@ for k = 1:Nsim
 %     TODO: dymola co-simulation
     if  SimParam.emulate
 %    State and Output update
-        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 +model.plant.Gd*1;
+
+       % ratio = 15;% percentage of uncertainty  to the disturbance where 10 means unceratinty is in range of 10% of disturbance 
+       % WW = ((-norm(d0,inf)/(100/ratio))+(2*norm(d0,inf)/(100/ratio)).*rand(model.plant.nd,1));
+        
+        WW(41,1)=W(k);
+        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1 ;%+ model.plant.Ed* WW;%L2020
+        %GGG(:,k)=norm(d0,inf);
+        %xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1;
         yn = model.plant.Cd*x0 + model.plant.Dd*uopt + model.plant.Fd*1;
 
         % simulation model data vectors
@@ -444,15 +569,16 @@ for k = 1:Nsim
 % TODO standalone functions?
     if estim.use 
         if estim.SKF.use  % stationary KF
-            
+            %if ctrl.RMPCLMI.use
+             %   xe = xp;
+            %else
             % measurement update                              
             yp = model.pred.Cd*xp + model.pred.Dd*uopt + model.pred.Fd*1;          % output estimation
             ep = yn - yp;                                                       % estimation error
             xe = xp  + estim.SKF.L1*ep;                                       % estimated state
-            
+            %end
             % time update
             xp = model.pred.Ad*xe + model.pred.Bd*uopt + model.pred.Ed*d0 + model.pred.Gd*1;
-            
             ye = model.pred.Cd*xe + model.pred.Dd*uopt + model.pred.Fd*1;     % output estimate with x[n|n]
              
         elseif estim.TVKF.use  % time varying KF           
@@ -715,7 +841,7 @@ if ctrl.use
         outdata.solver.OBJ = OBJ; % obj function
         outdata.solver.DUALS = DUALS; % dual variables
         outdata.solver.PRIMALS = PRIMALS;  % primal variables
-        outdata.solver.SolverTime = SolverTime;  % solvertime
+%        outdata.solver.SolverTime = SolverTime;  % solvertime
         outdata.solver.MPC_options.solver = MPC_options.solver; % solver info
         if strcmp(MPC_options.solver,'+quadprog')
             outdata.solver.ITERS = ITERS;  % number of iterations

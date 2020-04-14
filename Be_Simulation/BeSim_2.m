@@ -221,37 +221,9 @@ if ctrl.RMPCLMI.use
 % M^-1 * [Xss;USS] = [-(E*d + Gd);(R-Fd)]
 %first we create M^-1 which is a matrix [(A-I_nx) B ; C , D ]% if Nu!= Ny
 % D should work to make the matrix M square such that we have the inverse 
-    yn =zeros(model.plant.ny,1);
+
     M = inv([model2.pred.Ad - eye(model2.pred.nx), model2.pred.Bd; model2.pred.Cd, model2.pred.Dd]);
-% for j=1:SimParam.run.end
-%      R(:,((j-1)*96)+1:32+((j-1)*96))=290.65*ones(6,32);
-% end
-%      R(:,1:32)=290.65*ones(6,32);%L2020R
-%      R(:,97:96+32)=290.65*ones(6,32);%L2020R
-%      R(:,2*96+1:32+2*96)=290.65*ones(6,32);%L2020R
-%      R(:,3*96+1:32+3*96)=290.65*ones(6,32);%L2020R
-%      R(:,4*96+1:32+4*96)=290.65*ones(6,32);%L2020R
-%      R(:,5*96+1:32+5*96)=290.65*ones(6,32);%L2020R
-%      R(:,6*96+1:32+6*96)=290.65*ones(6,32);%L2020R
- 
-%     initialize MPC diagnostics vectors
-        if model.plant.nd == 0  %  no disturbnances option
-             [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{X(:,1), R(:,1)}; % optimizer with estimated states
-        else
-             [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{Xp(:,1), R(:,1)}; % optimizer with estimated states          
-        end
-        
-        %if (det(out{1,2})==0)
-         %   F=zeros(model2.pred.nu,model2.pred.nx);
-        %else
-            F = out{1,1} * (out{1,2})^-1;% Feedback gain.
-        %end
-        
-        if model.plant.nd == 0  
-            opt_out{1} = F * X(:,1);
-        else
-            opt_out{1} = F * Xp(:,1);
-        end
+
         
  
 end
@@ -519,17 +491,8 @@ for k = 1:Nsim
 %     TODO: dymola co-simulation
     if  SimParam.emulate
 %    State and Output update
-        %EE =  eye(model.plant.nx,11);
-%         if 
-%             
-%         else   to be used to add uncertainty or not 
-%             
-%         end 
-        ratio = 10;% percentage of uncertainty  to the disturbance where 10 means unceratinty is in range of 10% of disturbance 
-        WW = ((-norm(d0,inf)/(100/ratio))+(2*norm(d0,inf)/(100/ratio)).*rand(model.plant.nd,1));
-        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1;% +model.plant.Ed* WW;%L2020
-        %GGG(:,k)=norm(d0,inf);
-        %xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1;
+       
+        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1;
         yn = model.plant.Cd*x0 + model.plant.Dd*uopt + model.plant.Fd*1;
 
         % simulation model data vectors
