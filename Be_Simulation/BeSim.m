@@ -234,9 +234,9 @@ Xss = M1 * [-(model.pred.Ed*D(:,1) + model.pred.Gd); [R(:,1) - model.pred.Fd]];
 Uss = M2 * [-(model.pred.Ed*D(:,1) + model.pred.Gd); [R(:,1) - model.pred.Fd]];
  
         if model.plant.nd == 0  %  no disturbnances option
-          Xe = X(:,1) - Xss;% X(:,1): zeros   
+          Xer = X(:,1) - Xss;% X(:,1): zeros   
         else
-          Xe = Xp(:,1) - Xss;% X(:,1): zeros 
+          Xer = Xp(:,1) - Xss;% X(:,1): zeros 
         end
 
 Ue = u - Uss;% 
@@ -244,19 +244,19 @@ Ue = u - Uss;%
 ymaxred = wa(:,1);% L4 maybe use wb
 
 umax = model.pred.umax - Uss;
-ymax = ymaxred - model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd; 
+ymax = ymaxred - (model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd); 
 
 
 
       %     initialize LMI MPC diagnostics vectors
-             [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{Xe,umax,ymax}}; % optimizer with estimated states
+             [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{Xer,umax,ymax}}; % optimizer with estimated states
              
              Ynew = solutions{1};
              Qnew = solutions{2};
              gamma = solutions{3};
              F = Ynew*inv(Qnew);
              
-             u = Uss + F*Xe;
+             u = Uss + F*Xer;
              opt_out{1} = u;
 
 %      R(:,1:32)=290.65*ones(6,32);%L2020R
@@ -307,12 +307,11 @@ start_t = clock;
 W = mean(D(41,1:Nsim)) - normrnd(mean(D(41,1:Nsim)),0.5*var(D(41,1:Nsim)),1,Nsim);
 
 %W =  normrnd(mean(dist.d(:,41)),var(dist.d(:,41)),1,Nsim);
-hold on
-tt=(1:Nsim)*model.plant.Ts/3600/24;
-plot(tt,W); 
-title('Ambient Temperature Disturbance');
-ylabel('Temp [K]')%[^{\circ}C]'
-xlabel('time [days]')%
+% tt=(1:Nsim)*model.plant.Ts/3600/24;
+% plot(tt,W); 
+% title('Ambient Temperature Disturbance');
+% ylabel('Temp [K]')%[^{\circ}C]'
+% xlabel('time [days]')%
 WW =zeros(44,1);
 
 for k = 1:Nsim
@@ -427,14 +426,14 @@ for k = 1:Nsim
                 Price_prev = Price(:, k:k+(ctrl.RMPCLMI.Nrp-1));
                 
                 %Steady state conditions:
-                re=293*ones(model.pred.ny,1);
+                re = 293 * ones(model.pred.ny,1);
                 Xss = M1 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
                 Uss = M2 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
                 
                 if estim.use  %  no disturbnances option
-                    Xe = xp - Xss;% X(:,1): zeros
+                    Xer = xp - Xss;% X(:,1): zeros
                 else
-                    Xe = x0 - Xss;% X(:,1): zeros
+                    Xer = x0 - Xss;% X(:,1): zeros
                 end
                  
                 u = zeros(model.pred.nu,1);
@@ -444,18 +443,18 @@ for k = 1:Nsim
                 %ymaxred = 300*ones(model.pred.ny,1);
                 
                 umax = model.pred.umax - Uss;
-                ymax = ymaxred - model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd;
+                ymax = ymaxred - (model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd);
                 
  
                 %     initialize LMI MPC diagnostics vectors
-                [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{Xe,umax,ymax}}; % optimizer with estimated states
+                [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{Xer,umax,ymax}}; % optimizer with estimated states
                 
                 Ynew = solutions{1};
                 Qnew = solutions{2};
                 gamma = solutions{3};
                 F = Ynew*inv(Qnew);
                 
-                u = Uss + F*Xe;
+                u = Uss + F*Xer;
                 opt_out{1} = u;                
                 MPC_options = ctrl.RMPCLMI.optimizer.options;
                 
@@ -570,14 +569,11 @@ for k = 1:Nsim
 % TODO standalone functions?
     if estim.use 
         if estim.SKF.use  % stationary KF
-            %if ctrl.RMPCLMI.use
-             %   xe = xp;
-            %else
+
             % measurement update                              
             yp = model.pred.Cd*xp + model.pred.Dd*uopt + model.pred.Fd*1;          % output estimation
             ep = yn - yp;                                                       % estimation error
             xe = xp  + estim.SKF.L1*ep;                                       % estimated state
-            %end
             % time update
             xp = model.pred.Ad*xe + model.pred.Bd*uopt + model.pred.Ed*d0 + model.pred.Gd*1;
             ye = model.pred.Cd*xe + model.pred.Dd*uopt + model.pred.Fd*1;     % output estimate with x[n|n]

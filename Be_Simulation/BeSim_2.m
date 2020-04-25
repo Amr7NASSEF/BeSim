@@ -1,4 +1,4 @@
-function outdata = BeSim(model,model2 ,estim, ctrl, dist, refs, SimParam)
+function outdata = BeSim_2(model,model2 ,estim, ctrl, dist, refs, SimParam)
 
 if nargin == 0  % model
    buildingType = 'Infrax';  
@@ -213,19 +213,50 @@ if ctrl.RMPC.use
 end
 
 if ctrl.RMPCLMI.use
- %L2020
+    
+%L2020
 %Finding steady state input Us and steady state states Xs
 %accoridng to Reference R(k) = CXs(k), Xs(k) =A Xs + B Us
 % Xss = AXss +BUss +E*d + Gd
 % yss=Ref = CXss + DUss + Fd
 % M^-1 * [Xss;USS] = [-(E*d + Gd);(R-Fd)]
 %first we create M^-1 which is a matrix [(A-I_nx) B ; C , D ]% if Nu!= Ny
-% D should work to make the matrix M square such that we have the inverse 
+% D should work to make the matrix M square such that we have the inverse     
+    
+    
+u = zeros(model.pred.nu,1);
 
-    M = inv([model2.pred.Ad - eye(model2.pred.nx), model2.pred.Bd; model2.pred.Cd, model2.pred.Dd]);
-
-        
+M   = inv([[model.pred.Ad - eye(model.pred.nx)], model.pred.Bd; model.pred.Cd, model.pred.Dd]);
+M1  = M(1:model.pred.nx,:);
+M2  = M(model.pred.nx+1:end,:);    
+Xss = M1 * [-(model.pred.Ed*D(:,1) + model.pred.Gd); [R(:,1) - model.pred.Fd]];
+Uss = M2 * [-(model.pred.Ed*D(:,1) + model.pred.Gd); [R(:,1) - model.pred.Fd]];
  
+        if model.plant.nd == 0  %  no disturbnances option
+          Xer = X(:,1) - Xss;% X(:,1): zeros   
+        else
+          Xer = Xp(:,1) - Xss;% X(:,1): zeros 
+        end
+
+Ue = u - Uss;% 
+
+ymaxred = wa(:,1);% L4 maybe use wb
+
+umax = model.pred.umax - Uss;
+ymax = ymaxred - (model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd); 
+
+
+
+      %     initialize LMI MPC diagnostics vectors
+             [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{Xer,umax,ymax}}; % optimizer with estimated states
+             
+             Ynew = solutions{1};
+             Qnew = solutions{2};
+             gamma = solutions{3};
+             F = Ynew*inv(Qnew);
+             
+             u = Uss + F*Xer;
+             opt_out{1} = u;
 end
     
 
@@ -260,6 +291,17 @@ fprintf('\n---------------- Simulation Running -----------------');
 reverseStr = '';
 
 start_t = clock;
+%W = mean(dist.d(:,41)) - normrnd(mean(dist.d(1:Nsim,41)),0.5*var(dist.d(1:Nsim,41)),1,Nsim);
+W = Uncertainty(D,Nsim,model.plant.Ts);
+%mean(D(41,1:Nsim)) - normrnd(mean(D(41,1:Nsim)),0.5*var(D(41,1:Nsim)),1,Nsim);
+
+%W =  normrnd(mean(dist.d(:,41)),var(dist.d(:,41)),1,Nsim);
+% tt=(1:Nsim)*model.plant.Ts/3600/24;
+% plot(tt,W); 
+% title('Ambient Temperature Disturbance');
+% ylabel('Temp [K]')%[^{\circ}C]'
+% xlabel('time [days]')%
+WW =zeros(44,1);
 
 for k = 1:Nsim
     
@@ -363,7 +405,7 @@ for k = 1:Nsim
                   MPC_options = ctrl.RMPC.optimizer.options;
                   
            elseif ctrl.RMPCLMI.use
-    %             TODO: predictions as standalone function
+    %     TODO: predictions as standalone function
                 % preview of disturbance signals on the prediction horizon
                 Dpreview = D(:, k:k+(ctrl.RMPCLMI.Ndp-1));   
                 % preview of thresholds on the prediction horizon - Dynamic comfort zone
@@ -372,39 +414,39 @@ for k = 1:Nsim
                 % preview of the price signal
                 Price_prev = Price(:, k:k+(ctrl.RMPCLMI.Nrp-1));
                 
-                %Steady state conditions: 
-                SS= M *[-(model2.pred.Ed*d0+model2.pred.Gd); [[297;297;297;297;297;297] - model2.pred.Fd]];
+                %Steady state conditions:
+                re = 293 * ones(model.pred.ny,1);
+                Xss = M1 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
+                Uss = M2 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
                 
-                xss = SS(1:model2.pred.nx,:);
-                uss = SS(model2.pred.nx+1:end,:);
-                xe = ((model2.pred.Cd)\yn)-xss;
-                
-                if k==1 
-                    xe=zeros(model2.pred.nx,1);
+                if estim.use  %  no disturbnances option
+                    Xer = xp - Xss;% X(:,1): zeros
+                else
+                    Xer = x0 - Xss;% X(:,1): zeros
                 end
-%                 
-                if estim.use   % estimated states
-                    if model.plant.nd == 0  %  no disturbnances option
-                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{xe, R(:,k)}}; % optimizer with estimated states
-                    else
-                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{xe, R(:,k)}}; % optimizer with estimated states
-                    end
-                else    % perfect state update
-                    if model.plant.nd == 0  %  no disturbnances option
-                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{xe, R(:,k)}}; % optimizer with estimated states
-                    else
-                         [out, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{xe, R(:,k)}}; % optimizer with measured states  
-                    end                 
-                end
-                  MPC_options = ctrl.RMPCLMI.optimizer.options;
                  
-                      %if (det(out{1,2})==0) % to check singularity of W delete later 
-                           F = zeros(model2.pred.nu,model2.pred.nx);
-                      %else
-                           F = out{1,1} * (out{1,2})^-1;% Feedback gain.
-                      %end
-                   
-                          opt_out{1} = uss+ F*xe;    
+                u = zeros(model.pred.nu,1);
+                Ue = u - Uss;%
+                
+                ymaxred = wb(:,k);% L4 maybe use wb
+                %ymaxred = 300*ones(model.pred.ny,1);
+                
+                umax = model.pred.umax - Uss;
+                ymax = ymaxred - (model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd);
+                
+ 
+                %     initialize LMI MPC diagnostics vectors
+                [solutions, feasible, info1, info2, info3, info4] =  ctrl.RMPCLMI.optimizer{{Xer,umax,ymax}}; % optimizer with estimated states
+                
+                Ynew = solutions{1};
+                Qnew = solutions{2};
+                gamma = solutions{3};
+                F = Ynew*inv(Qnew);
+                
+                u = Uss + F*Xer;
+                opt_out{1} = u;                
+                MPC_options = ctrl.RMPCLMI.optimizer.options;
+                
             end
                 
   
@@ -491,8 +533,9 @@ for k = 1:Nsim
 %     TODO: dymola co-simulation
     if  SimParam.emulate
 %    State and Output update
+        WW(41,1)=W(k);
        
-        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1;
+        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1 + model.plant.Ed* WW;
         yn = model.plant.Cd*x0 + model.plant.Dd*uopt + model.plant.Fd*1;
 
         % simulation model data vectors

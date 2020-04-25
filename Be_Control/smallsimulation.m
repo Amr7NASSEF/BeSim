@@ -1,7 +1,7 @@
 clear all;
 yalmip('clear');
 ModelParam.Orders.range = [4, 7, 10, 15, 20, 30, 40, 100];
-ModelParam.Orders.choice = 7;%'full'; % L2020 March 4 'full';                            % model order selection for prediction
+ModelParam.Orders.choice = 10;%'full'; % L2020 March 4 'full';                            % model order selection for prediction
 ModelParam.off_free = 0; %L2020 -change to 0 and observer the difference,                                      % augmented model with unmeasured disturbances
 ModelParam.reload = 0;                                        % if 1 reload ROM, if 0 load saved ROM
 
@@ -137,13 +137,14 @@ ymaxred=300*ones(model.pred.ny,1);
 D=dist.d(1:500,:)';    
 ref=295*ones(model.pred.ny,1);
 %ref=20;
-for i=1:100
+for i=1:96
     d0=D(:,i);    
 M   = inv([[model.pred.Ad - eye(model.pred.nx)], model.pred.Bd; model.pred.Cd, model.pred.Dd]);
 M1  = M(1:model.pred.nx,:);
 M2  = M(model.pred.nx+1:end,:);
 Xss = M1 * [-(model.pred.Ed*d0 + model.pred.Gd); [ref - model.pred.Fd]];
 Uss = M2 * [-(model.pred.Ed*d0 + model.pred.Gd); [ref - model.pred.Fd]];
+ss(:,i) =Uss; 
 %     M = inv([A-eye(nx) B; C 0]);
 %     M1 = M(1:nx,:);
 %     M2 = M(nx+1:end,:);
@@ -157,16 +158,16 @@ Ue = u - Uss;
 
 
 umax = model.pred.umax - Uss;
-ymax = ymaxred - model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd; 
-
+ymax = ymaxred -(model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd); 
+err(:,i)=Xe;
 [solutions,info] = mpc{{Xe,umax,ymax}};
     Qnew = solutions{2};
     Ynew = solutions{1};
     gamma = solutions{3};
 %    sett(i) = solutions{4};
-    F = Ynew*inv(Qnew);
+    F = Ynew * inv(Qnew);
     u = Uss + F*Xe;
- 
+    
     x = model.pred.Ad*x + model.pred.Bd*u + model.pred.Ed*d0 + model.pred.Gd;
     XX(:,i)=x;
     y(:,i) = model.pred.Cd*x + model.pred.Dd*u + model.pred.Fd;

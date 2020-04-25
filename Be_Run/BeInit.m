@@ -30,7 +30,7 @@ buildingType = 'Reno';
 % =========== 2, choose model order =================
 ModelParam.Orders.range = [4, 7, 10, 15, 20, 30, 40, 100];    % suggested = model orders for 'Reno', 'Old', 'RenoLight'
 % ModelParam.Orders.range = [100, 200, 600];                  % suggested model orders for 'Infrax', 'HollandschHuys'
-ModelParam.Orders.choice = 40;%'full'; % L2020 March 4 'full';                            % model order selection for prediction
+ModelParam.Orders.choice = 'full'; % L2020 March 4 'full';                            % model order selection for prediction
 ModelParam.off_free = 0; %L2020 -change to 0 and observer the difference,                                      % augmented model with unmeasured disturbances
 ModelParam.reload = 0;                                        % if 1 reload ROM, if 0 load saved ROM
 
@@ -49,11 +49,13 @@ model_Light = BeModel('RenoLight', ModelParam);      % construct a model object
 model_Reno = BeModel('Reno', ModelParam);      % construct a model object   
 model_Old = BeModel('Old', ModelParam);      % construct a model object   
 
-model = model_Old;      % construct a model for prediction   
-model_plant = model_Light;      % construct a model for plant simulation 
-
 model_Light.pred.umax = model_Old.pred.umax;
-model_Reno.pred.umax = model_Old.pred.umax;
+%model_Reno.pred.umax = model_Old.pred.umax;
+
+model = model_Light;      % construct a model for prediction   
+model_plant = model_Old;      % construct a model for plant simulation 
+
+
 
 
 
@@ -87,20 +89,20 @@ CtrlParam.LaserMPC.Condensing = 1;
 CtrlParam.RBC.use = 0;
 CtrlParam.PID.use = 0;
 CtrlParam.MLagent.use = 0;
-CtrlParam.RMPC.use=0; %L2020 MUP USE 
+CtrlParam.RMPC.use=1; %L2020 MUP USE 
 CtrlParam.RMPC.Condensing = 1;
-CtrlParam.RMPCLMI.use=1; %L2020 MUP USE 
+CtrlParam.RMPCLMI.use=0; %L2020 MUP USE 
 
 if (CtrlParam.RMPCLMI.use)
-     ctrl = BeCtrl_1(model_Old,model_Reno,model_Light,CtrlParam); 
+     ctrl = BeCtrl_1(model_Reno,model_Old,model_Light,CtrlParam); 
  else
     ctrl = BeCtrl(model, CtrlParam);       % construct a controller object
 end
 %% Simulate
 % SimParam.run.start = 11;
 % SimParam.run.end = 17; 
-SimParam.run.start =10;
-SimParam.run.end = 12; 
+SimParam.run.start =5;
+SimParam.run.end = 7; 
 SimParam.verbose = 1;
 SimParam.flagSave = 0;
 SimParam.comfortTol = 1e-1;
@@ -109,9 +111,9 @@ SimParam.profile = 0;  % profiler function for CPU evaluation
 
 % %  simulation file with embedded plotting file
 
-outdata = BeSim(model, estim, ctrl, dist, refs, SimParam);
+%outdata = BeSim(model, estim, ctrl, dist, refs, SimParam);
 
-%outdata = BeSim_2(model_plant,model, estim, ctrl, dist, refs, SimParam);
+outdata = BeSim_2(model_plant,model, estim, ctrl, dist, refs, SimParam);
 
 
 %% Diagnose the MPC problem via Yalmip optimize

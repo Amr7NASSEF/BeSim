@@ -1,5 +1,5 @@
 function [mpc, constraints_info] = BeMPCdesignDraft(model, RMPCParam)
-% MPC design function using Yalmip
+% RMPC design function using Yalmip
 
 if nargin == 0
    buildingType = 'Infrax';  
@@ -173,7 +173,7 @@ for k = 1:N
          con = con + [ (0*ones(model.pred.ny,1)<=s(:,k)):['nonnegative_slacks_k=',int2str(k)] ];  
        
         %   uncertainty constraints 
-         G = G + [ 0<= W(:,k) <= 30];
+         G = G + [ -10<= W(:,k) <= 10];
 
     %   -------------  OBJECTIVE FUNCTION  -------------
         %    % quadratic objective function withouth states constr.  penalisation
@@ -195,26 +195,24 @@ end
      %% construction of object optimizer
      %   structure:  optimizer(constraints, objecttive, options, input_params, output_params)
 
-    %  optimizer options
-   % try
-     %   options = sdpsettings('verbose', 1, 'solver','gurobi');%,'gurobi.TimeLimit',50);
-     %options = sdpsettings('verbose', 1, 'solver','mosek');%,'gurobi.TimeLimit',50);
-    %    
-    %test = optimizer([],[],options,[],[]);
-        % options = sdpsettings('verbose', 1, 'warning', 1, 'beeponproblem', 1, 'solver','cplex');
-    %catch
-       % options = sdpsettings;
-      %  fprintf('Quadprog used instead \n');
-    %end
+     %optimizer options
+%     try
+      options = sdpsettings('verbose', 1, 'solver','gurobi');%,'gurobi.TimeLimit',600);%,'gurobi.TimeLimit',50);       
+%      test = optimizer([],[],options,[],[]);
+%         %options = sdpsettings('verbose', 1, 'warning', 1, 'beeponproblem', 1, 'solver','cplex');
+%     catch
+%        options = sdpsettings;
+%        fprintf('Quadprog used instead \n');
+%     end
 %   worst case optimization cpu time -  max time limit for solver options.gurobi.TimeLimit
 % http://www.gurobi.com/documentation/7.5/refman/timelimit.html
 
 %% March 2020 
      % optimizer for dynamic comfort zone
      if nd == 0  % no disturbances formulation
-         mpc = optimizer([con], obj, options,  { x(:, 1), wa_prev, wb_prev, price }, {u(:,1); obj} );
+         mpc = optimizer([con, G, uncertain(W)], obj, options,  { x(:, 1), wa_prev, wb_prev, price }, {u(:,1); obj} );
      else
-         mpc = optimizer([con, G, uncertain(W)], obj, sdpsettings('solver','gurobi'),  { x(:, 1), d_prev, wa_prev, wb_prev, price }, {u(:,1); obj} );
+         mpc = optimizer([con, G, uncertain(W)], obj, options,  { x(:, 1), d_prev, wa_prev, wb_prev, price }, {u(:,1); obj} );
         
      end    
 
