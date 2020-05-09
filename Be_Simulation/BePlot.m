@@ -22,6 +22,10 @@ font_use = 14;
 if outdata.ctrl.MPC.use
     N = outdata.ctrl.MPC.N;
     Nrp = outdata.ctrl.MPC.Nrp;
+
+elseif outdata.ctrl.AMPC.use
+    N = outdata.ctrl.AMPC.N;
+    Nrp = outdata.ctrl.AMPC.Nrp;
     
 elseif outdata.ctrl.LaserMPC.use
     N = outdata.ctrl.LaserMPC.N;
@@ -29,7 +33,11 @@ elseif outdata.ctrl.LaserMPC.use
 
 elseif outdata.ctrl.RMPC.use
     N = outdata.ctrl.RMPC.N;
-    Nrp = outdata.ctrl.RMPC.Nrp;  
+    Nrp = outdata.ctrl.RMPC.Nrp; 
+    
+elseif outdata.ctrl.ARMPC.use
+    N = outdata.ctrl.ARMPC.N;
+    Nrp = outdata.ctrl.ARMPC.Nrp; 
 
 elseif outdata.ctrl.RMPCLMI.use
     N = outdata.ctrl.RMPCLMI.N;
@@ -258,26 +266,31 @@ if outdata.ctrl.use
          plot(Time, outdata.data.Y-273.15, 'linewidth', 2);
          axis tight
          grid on
-         ylabel('Temperatures [\circC]','fontsize',font_use)  
+         ylabel('Temperatures [\circC]','fontsize',font_use)
          set(gca,'fontsize',font_use)
          box on
-    % %         slight rotation to prevent misplotting
-    %      ax = gca;
-    %      ax.XTickLabelRotation=1; 
-
+         
+         % %         slight rotation to prevent misplotting
+         %      ax = gca;
+         %      ax.XTickLabelRotation=1;
+         
          if outdata.ctrl.use
              Rmin = mean(outdata.data.wb(:,1:end-Nrp),1);
              Rmax = mean(outdata.data.wa(:,1:end-Nrp),1);
-    %          R = outdata.data.R;
+             %          R = outdata.data.R;
              stairs(Time, Rmin-273.15, 'k--', 'linewidth', 2);
              stairs(Time, Rmax-273.15, 'k--', 'linewidth', 2);
          end
+         legend('Room.1','Room.2','Room.3','Room.4','Room.5','Room.6','Limits','Limits')
+
 
     %      INPUTS
         subplot(2, 1, 2); 
-        title('Heating','fontsize',font_use+2);   
+        title('Heating','fontsize',font_use+2);
         hold on
         h = stairs(Time, outdata.data.U');
+        legend('Input.1','Input.2','Input.3','Input.4','Input.5','Input.6')
+
         set(h, 'linewidth', 2, 'linestyle', '-');
         axis tight
         grid on

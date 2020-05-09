@@ -1,4 +1,4 @@
-function [mpc, constraints_info] = BeRMPCLMI(model1,model2,model3 )% RMPCLMIParam
+function [mpc, constraints_info] = BeRMPCLMI_test(model1,model2,model3 )% RMPCLMIParam
        % dimensions
     nx = model1.pred.nx;
     ny = model1.pred.ny;
@@ -13,6 +13,7 @@ function [mpc, constraints_info] = BeRMPCLMI(model1,model2,model3 )% RMPCLMIPara
     ymax = sdpvar(ny,1);
     Gamma = sdpvar(1,1);% minimize Gamma or (1,1)
     s = sdpvar(ny,1); % maximum output constraint slack.
+    ss = sdpvar(1,1);
       
 
     
@@ -35,7 +36,7 @@ function [mpc, constraints_info] = BeRMPCLMI(model1,model2,model3 )% RMPCLMIPara
    %% Weight Matrices
    
     Qy = eye(nu)*10^-3;
-    Qw = C{1,1}'*C{1,1}*10^0;%0 ,-4% original it was 10^5
+    Qw = C{1,1}'*C{1,1}*10^-4;%0
     %Qw = Qx'*Qx*10^5;
  
     % to organise the matrices for LMI 
@@ -48,7 +49,8 @@ function [mpc, constraints_info] = BeRMPCLMI(model1,model2,model3 )% RMPCLMIPara
         %   -------------  Constraints  -------------
     Lmi_Lyap=[[W >= 0] : ['Constraint on W']];
     Lmi_rie =[[[1, x'; x, W] >= 0] :['constraint on X'] ];
-
+   % con=con+[ss <= 0];
+    
 % LMI for convix
     Lmi_convix = [];
     for v = 1 : nv
@@ -64,7 +66,7 @@ function [mpc, constraints_info] = BeRMPCLMI(model1,model2,model3 )% RMPCLMIPara
          Lmi_u_max = [[[ diag(umax) * diag(umax), Y;...
              Y', W] >= 0 ]:['Lmi_maximum input constraints']];
 
-% LMI for output
+%LMI for output
      Lmi_output_max = [];
      for v = 1 : nv
          lmi_output_max_item = [[
@@ -77,8 +79,8 @@ function [mpc, constraints_info] = BeRMPCLMI(model1,model2,model3 )% RMPCLMIPara
          con = con + [(0<=s(i,1)):['nonnegative_slacks_output_=',int2str(i)] ];
      end
     
-% Constraints
-con =  Lmi_Lyap +  Lmi_convix + Lmi_rie + Lmi_u_max + Lmi_output_max + con;
+%Constraints
+con =  Lmi_Lyap +  Lmi_convix  +Lmi_rie+ Lmi_u_max + Lmi_output_max + con;%
 
     % -------------  OBJECTIVE FUNCTION  -------------
                          obj = Gamma;

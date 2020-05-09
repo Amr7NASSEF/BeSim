@@ -1,4 +1,4 @@
-function outdata = BeSim_2(model,model2 ,estim, ctrl, dist, refs, SimParam)
+function outdata = BeSim_3(model,model_1,model_2,model_3 ,estim, ctrl, dist, refs, SimParam)
 
 if nargin == 0  % model
    buildingType = 'Infrax';  
@@ -50,9 +50,9 @@ end
 %% Simulation setup   
 fprintf('\n------------------ Simulation Setup -----------------\n');
 
-fprintf('*** Building Type Prediction = %s\n' , model2.buildingType);
+fprintf('*** Building Type Prediction = %s\n' , model_1.buildingType);
 fprintf('*** Building Type Plant = %s\n' , model.buildingType);
-fprintf('*** r order = %d, \n',   size(model2.pred.Ad,1))
+fprintf('*** r order = %d, \n',   size(model_1.pred.Ad,1))
 fprintf('*** Start day = %d , End day = %d \n', SimParam.run.start, SimParam.run.end);
 
 % Simulation steps   
@@ -74,11 +74,7 @@ Nsim = length(SimStart:SimStop);
 % preview setup
 if ctrl.MPC.use 
         N = ctrl.MPC.N;
-        Nrp = ctrl.MPC.Nrp;
-elseif ctrl.AMPC.use
-        N = ctrl.AMPC.N;
-        Nrp = ctrl.AMPC.Nrp;
-        Nup = ctrl.MHEParams.N;
+        Nrp = ctrl.MPC.Nrp;   
 elseif ctrl.LaserMPC.use
         N = ctrl.LaserMPC.N;
         Nrp = ctrl.LaserMPC.Nrp;           
@@ -89,6 +85,7 @@ elseif ctrl.MLagent.use
 elseif ctrl.RMPC.use
         N = ctrl.RMPC.N;
         Nrp = ctrl.RMPC.Nrp;
+        
 elseif ctrl.ARMPC.use
     N = ctrl.ARMPC.N;
     Nrp = ctrl.ARMPC.Nrp;
@@ -103,17 +100,7 @@ end
 
 % state disturbacne trajectories
 X = zeros(model.plant.nx,Nsim+1);
-Dp = dist.d(SimStart:SimStop+N,:)';% disturbance injected into the plant
-
-if SimParam.allDist ==1
-    D = dist.d(SimStart:SimStop+N,:)';% disturbance injected into the controller
-else
-    D = dist.d(SimStart:SimStop+N,:)'*0;
-    D(41,:) = dist.d(SimStart:SimStop+N,41)';  
-end
-
-%      arrange for certain flag for the disturbance            dd=zeros(44,ctrl.MPC.Ndp);
-%                 dd(41,:)=Dpreview(41,:);
+D = dist.d(SimStart:SimStop+N,:)';
 
 % diagnostics
 StepTime = zeros(1,Nsim); 
@@ -140,13 +127,12 @@ if  not(ctrl.use)  % precomputed inputs and outputs
 else   % initialize matrices for closed loop control simulations
     Y = zeros(model.plant.ny,Nsim)+model.plant.Fd*1;
     U = zeros(model.plant.nu,Nsim);
-    UParam = zeros(model.plant.nu,Nsim*N*22);
     
     uopt = U(:,1); % initialize controls
 
     % ------ references ------
     if  strcmp(model.buildingType,'Reno') ||  strcmp(model.buildingType,'Old') ||  strcmp(model.buildingType,'RenoLight')
-         R = refs.R(SimStart:SimStop+N,:)';
+         R = refs.R(SimStart:SimStop,:)';
     end
     % above and below threshold comfort zone
     wa = refs.wa(SimStart:SimStop+N,:)';
@@ -166,18 +152,33 @@ end
 
 if estim.use 
     %     estmator vector inits
-    Xp = zeros(model2.pred.nx,Nsim+1);
-    Xe = zeros(model2.pred.nx,Nsim);
-    Ye = zeros(model2.pred.ny,Nsim);
-    Yp = zeros(model2.pred.ny,Nsim);
-%     Ye = 295.15*ones(model2.pred.ny,Nsim);
-%     Yp = 295.15*ones(model2.pred.ny,Nsim);
-%     Ye = 21.15*ones(model2.pred.ny,Nsim);
-%     Yp = 21.15*ones(model2.pred.ny,Nsim);
+    if   ctrl.ARMPC.use
+        Xp_1 = zeros(model_1.pred.nx,Nsim+1);
+        Xp_2 = zeros(model_2.pred.nx,Nsim+1);
+        Xp_3 = zeros(model_3.pred.nx,Nsim+1);
+    else
+    Xp = zeros(model_1.pred.nx,Nsim+1);
+    end
+    Xe = zeros(model_1.pred.nx,Nsim);
+   
+    Ye = zeros(model_1.pred.ny,Nsim);
+    Yp = zeros(model_1.pred.ny,Nsim);
+%     Ye = 295.15*ones(model_pred1.pred.ny,Nsim);
+%     Yp = 295.15*ones(model_pred1.pred.ny,Nsim);
+%     Ye = 21.15*ones(model_pred1.pred.ny,Nsim);
+%     Yp = 21.15*ones(model_pred1.pred.ny,Nsim);
     
     % current estim states
-    xe = Xe(:, 1);  
-    xp = Xp(:, 1); 
+     
+    if   ctrl.ARMPC.use
+        xp_1 = Xp_1(:, 1);
+        xp_2 = Xp_2(:, 1);
+        xp_3 = Xp_3(:, 1);
+    else
+     xp = Xp(:, 1); 
+    end
+    
+    xe = Xe(:, 1);
     ye = Ye(:, 1);  
     yp = Yp(:, 1); 
     
@@ -188,8 +189,8 @@ if estim.use
 
     if estim.MHE.use
         OBJ_MHE = zeros(1,Nsim);
-        We = zeros(model2.pred.nx,Nsim);
-        Ve = zeros(model2.pred.ny,Nsim);    
+        We = zeros(model_1.pred.nx,Nsim);
+        Ve = zeros(model_1.pred.ny,Nsim);    
     end   
 end
 
@@ -201,22 +202,6 @@ if ctrl.MPC.use
              [opt_out, feasible, info1, info2, info3, info4] =  ctrl.MPC.optimizer{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
         else
              [opt_out, feasible, info1, info2, info3, info4] =  ctrl.MPC.optimizer{{Xp(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
-       
-        end
- 
-end
-
-if ctrl.AMPC.use
-        Ares = zeros(model2.pred.nx,model2.pred.nx); % initial for Ares
-        Bres = zeros(model2.pred.nx,model2.pred.nu);% initial for Bres
-%     initialize MPC diagnostics vectors
-        Aupd = model2.pred.Ad+Ares;
-        Bupd = model2.pred.Bd+Bres;
-
-        if model.plant.nd == 0  %  no disturbnances option
-             [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{X(:,1), Aupd, Bupd ,wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
-        else
-             [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{Xp(:, 1), Aupd, Bupd, D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
        
         end
  
@@ -247,19 +232,18 @@ if ctrl.RMPC.use
 end
 
 if ctrl.ARMPC.use
-    
 %     initialize MPC diagnostics vectors
         if model.plant.nd == 0  %  no disturbnances option
              
-             [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_1{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
-             [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_2{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
-             [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_3{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
+             [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer1{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
+             [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer2{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
+             [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer3{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
 
         else
              
-            [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_1{{Xp(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
-            [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_2{{Xp(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
-            [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_3{{Xp(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
+            [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer1{{Xp_1(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
+            [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer2{{Xp_2(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
+            [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer3{{Xp_3(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
 
         end
         
@@ -280,15 +264,15 @@ if ctrl.RMPCLMI.use
 % D should work to make the matrix M square such that we have the inverse     
     
     
-u = zeros(model2.pred.nu,1);
+u = zeros(model.pred.nu,1);
 
-M   = inv([[model2.pred.Ad - eye(model2.pred.nx)], model2.pred.Bd; model2.pred.Cd, model2.pred.Dd]);
-M1  = M(1:model2.pred.nx,:);
-M2  = M(model2.pred.nx+1:end,:);    
-Xss = M1 * [-(model2.pred.Ed*D(:,1) + model2.pred.Gd); [R(:,1) - model2.pred.Fd]];
-Uss = M2 * [-(model2.pred.Ed*D(:,1) + model2.pred.Gd); [R(:,1) - model2.pred.Fd]];
+M   = inv([[model.pred.Ad - eye(model.pred.nx)], model.pred.Bd; model.pred.Cd, model.pred.Dd]);
+M1  = M(1:model.pred.nx,:);
+M2  = M(model.pred.nx+1:end,:);    
+Xss = M1 * [-(model.pred.Ed*D(:,1) + model.pred.Gd); [R(:,1) - model.pred.Fd]];
+Uss = M2 * [-(model.pred.Ed*D(:,1) + model.pred.Gd); [R(:,1) - model.pred.Fd]];
  
-        if model2.plant.nd == 0  %  no disturbnances option
+        if model.plant.nd == 0  %  no disturbnances option
           Xer = X(:,1) - Xss;% X(:,1): zeros   
         else
           Xer = Xp(:,1) - Xss;% X(:,1): zeros 
@@ -298,8 +282,8 @@ Ue = u - Uss;%
 
 ymaxred = wa(:,1);% L4 maybe use wb
 
-umax = model2.pred.umax - Uss;%remove2
-ymax = ymaxred - (model2.pred.Cd*Xss + model2.pred.Dd*Uss + model2.pred.Fd); %remove 2
+umax = model.pred.umax - Uss;
+ymax = ymaxred - (model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd); 
 
 
 
@@ -316,7 +300,7 @@ ymax = ymaxred - (model2.pred.Cd*Xss + model2.pred.Dd*Uss + model2.pred.Fd); %re
 end
     
 
-if ctrl.MPC.use || ctrl.LaserMPC.use || ctrl.RMPC.use || ctrl.RMPCLMI.use|| ctrl.AMPC.use
+if ctrl.MPC.use || ctrl.LaserMPC.use || ctrl.RMPC.use || ctrl.RMPCLMI.use
     OBJ =  zeros(1,Nsim);            %  MPC objective function
     %constr_nr = sum(ctrl.MPC.constraints_info.i_length);  % total number of constraints % L2020 RMPC instead of MPC
     DUALS = zeros(length(info4.Dual),Nsim);  %  MPC dual variables for constraints
@@ -353,7 +337,7 @@ start_t = clock;
 
 
 load(['Uncertain60copy.mat']);
-%W=W(:,SimStart:SimStop+N);
+
 
 %W =  normrnd(mean(dist.d(:,41)),var(dist.d(:,41)),1,Nsim);
 % tt=(1:Nsim)*model.plant.Ts/3600/24;
@@ -367,7 +351,7 @@ for k = 1:Nsim
     
 %     current states, inputs, outputs and disturnances
     x0 = X(:,k);         % current sim states    - initialized to 0 at k = 1
-    d0 = Dp(:,k);         % current disturbances  - from measurements     
+    d0 = D(:,k);         % current disturbances  - from measurements     
     
 %     TODO: implement 3 cases: 
 % 1, plant simulation and control - all computed                 - DONE
@@ -385,7 +369,7 @@ for k = 1:Nsim
         elseif ctrl.PID.use
 %             TODO - implementation
             
-        elseif ctrl.MPC.use || ctrl.LaserMPC.use  || ctrl.RMPC.use|| ctrl.AMPC.use  || ctrl.ARMPC.use || ctrl.RMPCLMI.use    
+        elseif ctrl.MPC.use || ctrl.LaserMPC.use  || ctrl.RMPC.use || ctrl.ARMPC.use || ctrl.RMPCLMI.use    
             
             if ctrl.MPC.use
     %             TODO: predictions as standalone function
@@ -396,7 +380,6 @@ for k = 1:Nsim
                 wb_prev = wb(:, k:k+(ctrl.MPC.Nrp-1));
                 % preview of the price signal
                 Price_prev = Price(:, k:k+(ctrl.MPC.Nrp-1));
-
                 if estim.use   % estimated states
                     if model.plant.nd == 0  %  no disturbnances option
                          [opt_out, feasible, info1, info2, info3, info4] =  ctrl.MPC.optimizer{{xp, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
@@ -410,54 +393,8 @@ for k = 1:Nsim
                          [opt_out, feasible, info1, info2, info3, info4] =  ctrl.MPC.optimizer{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
                     end                 
                 end
-                MPC_options = ctrl.MPC.optimizer.options;
-            elseif ctrl.AMPC.use
-    %             TODO: predictions as standalone function
-                % preview of disturbance signals on the prediction horizon
-                Dpreview = D(:, k:k+(ctrl.AMPC.Ndp-1));   
-                % preview of thresholds on the prediction horizon - Dynamic comfort zone
-                wa_prev = wa(:, k:k+(ctrl.AMPC.Nrp-1));
-                wb_prev = wb(:, k:k+(ctrl.AMPC.Nrp-1));
-                % preview of the price signal
-                Price_prev = Price(:, k:k+(ctrl.AMPC.Nrp-1));
-                
-                
-                %     initialize MPC diagnostics vectors
-                
-                if ((k<500)&&(k>(Nup+5)))
-                    %[Aupds,Bupds,rtr,vx,vy]= ParamUp(model2,Y(:,1:k-1),U(:,1:k-1),D(:,1:k-1),Xp(:,1:k),k-1);
-                    [parameters,~,~,~]=ctrl.AMPC.UpdateParam{Y(:,k-Nup:k-1),U(:,k-Nup:k-1),D(:,k-Nup:k-1),Xp(:,k-Nup-1:k-1)};
-                    if parameters{1,3}==0
-                        upd=1;%Aupd=Aupd;%model2.pred.Ad+parameters{1};%Aupds;%parameters{1};
-                        %Bupd=Bupd;model2.pred.Bd+parameters{2};%Bupds;%parameters{2};
-                    else
-%                         if upd==1
-                            %
-                        %else
-                            Aupd=parameters{1};%+model2.pred.Ad+;%Aupds;%parameters{1};
-                            Bupd=parameters{2};%+model2.pred.Bd+;%Bupds;%parameters{2};
-                        %end
-                    end
-                    
-                end
-            
-            
-                if estim.use   % estimated states
-                    if model.plant.nd == 0  %  no disturbnances option
-                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{xp, Aupd,Bupd , wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                    else
-                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{xp, Aupd,Bupd, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                    end
-                else    % perfect state update
-                    if model.plant.nd == 0  %  no disturbnances option
-                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{x0, Aupd,Bupd, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                    else
-                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{x0, Aupd,Bupd, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
-                    end                 
-                end
-                
 
-                MPC_options = ctrl.AMPC.optimizer.options;
+                MPC_options = ctrl.MPC.optimizer.options;
                 
             elseif ctrl.LaserMPC.use   
                 % preview of disturbance signals on the prediction horizon
@@ -523,51 +460,151 @@ for k = 1:Nsim
                 Price_prev = Price(:, k:k+(ctrl.ARMPC.Nrp-1));
                 if estim.use   % estimated states
                     if model.plant.nd == 0  %  no disturbnances option
-                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_1{{xp, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_2{{xp, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_3{{xp, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer1{{xp_1, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer2{{xp_2, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer3{{xp_3, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
 
                     else
-                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_1{{xp, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_2{{xp, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_3{{xp, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer1{{xp_1, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer2{{xp_2, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer3{{xp_3, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
 
                     end
                 else    % perfect state update
                     if model.plant.nd == 0  %  no disturbnances option
-                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_1{{x0, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_2{{x0, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_3{{x0, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer1{{x0, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer2{{x0, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
+                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer3{{x0, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
 
                     else
-                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_1{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
-                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_2{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
-                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_3{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
+                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer1{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
+                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer2{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
+                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer3{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
   
                     end                 
                 end
+                %nv=3;% no of models
                 
-                % select 
-                
-                
-                
-                if select==1
-                    opt_out=opt_out_1;
-                    feasible=feasible_1;
-                    MPC_options = ctrl.ARMPC.optimizer_1.options;
-                elseif select==2
-                    opt_out=opt_out_2;
-                    feasible=feasible_2;
-                    MPC_options = ctrl.ARMPC.optimizer_2.options;
-                elseif select==3
-                    opt_out=opt_out_3;
-                    feasible=feasible_3;
-                    MPC_options = ctrl.ARMPC.optimizer_3.options;
-                else
+                if k==1
+                    for j=1:model.plant.ny
+                        if opt_out_1{1}(j)>=opt_out_2{1}(j)
+                            if opt_out_1{1}(j)>=opt_out_3{1}(j)
+                                choix(j)=1;
+                            else
+                                choix(j)=3;
+                            end
+                        elseif opt_out_2{1}(j)>=opt_out_3{1}(j)
+                            choix(j)=2;
+                        else
+                            choix(j)=3;
+                            
+                        end  
+                    end
+                    Q=1;
+                    choix=[1;1;1;1;1;1];
+                    outdata.choix(Q,:)=choix;
                 end
+                
+                if (rem(k,15)==0)% to decide when the comparison should start
+                    for j=1:model.plant.ny
+                        if ee_1(j)>=0
+                            if ee_2(j)>=0
+                                if ee_3(j)>=0
+                                    if abs(ee_1(j))<=abs(ee_2(j))
+                                        if abs(ee_1(j))<=abs(ee_3(j))
+                                            choix(j)=1;
+                                        else
+                                            choix(j)=3;
+                                        end
+                                    elseif abs(ee_2(j))<=abs(ee_3(j))
+                                        choix(j)=2;
+                                    else
+                                        choix(j)=3;
+                                    end
+                                elseif ee_1(j)>ee_2(j)
+                                    choix(j)=2;
+                                else
+                                    choix(j)=1;
+                                end
+                            elseif ee_3(j)>=0
+                                if ee_1(j)>ee_3(j)
+                                    choix(j)=3;
+                                else
+                                    choix(j)=1;
+                                end
+                            else
+                                choix(j)=1;
+                            end
+                        elseif ee_2(j)>=0
+                            if ee_3(j)>=0
+                                if ee_2(j)>ee_3(j)
+                                    choix(j)=3;
+                                else
+                                    choix(j)=2;
+                                end
+                            else
+                                choix(j)=2;
+                            end
+                        elseif ee_3(j)>=0
+                            choix(j)=3;
+                        else
+                            if abs(ee_1(j))<=abs(ee_2(j))
+                                if abs(ee_1(j))<=abs(ee_3(j))
+                                    choix(j)=1;
+                                else
+                                    choix(j)=3;
+                                end
+                            elseif abs(ee_2(j))<=abs(ee_3(j))
+                                choix(j)=2;
+                            else
+                                choix(j)=3;
+                            end
+                        end
+                    end
+                    Q=Q+1;
+                    outdata.choix(Q,:)=choix;
+                end
+                
+                
+%                % choix=[1;1;1;1;1;1];
+%                 for jj=1:model.plant.ny
+%                     eval(['opt_out(' num2str(jj) ')=opt_out_' num2str(choix(jj)) '{1}(' num2str(jj) ');' ])   
+%                 end
+                
+                
+                if (sum(choix==1))>=(sum(choix==2))
+                    if (sum(choix==1))>=(sum(choix==3))
+                        opt_out=opt_out_1{1};%
+                    else
+                        opt_out=opt_out_3{1};
+                    end
+                elseif (sum(choix==2))>=(sum(choix==3))
+                    opt_out=opt_out_2{1};
+                else
+                    opt_out=opt_out_3{1};
+                end
+                
+                
+                
+                
+%                 select=3;
+%                 if select==1
+%                     opt_out=opt_out_1;
+%                     feasible=feasible_1;
+%                     MPC_options = ctrl.ARMPC.optimizer1.options;
+%                 elseif select==2
+%                     opt_out=opt_out_2;
+%                     feasible=feasible_2;
+%                     MPC_options = ctrl.ARMPC.optimizer2.options;
+%                 elseif select==3
+%                     opt_out=opt_out_3;
+%                     feasible=feasible_3;
+%                     MPC_options = ctrl.ARMPC.optimizer3.options;
+%                 else
+%                 end
                     
                 
-                  %MPC_options = ctrl.ARMPC.optimizer.options;
+                  MPC_options = ctrl.ARMPC.optimizer1.options;
                   
                   
                   
@@ -582,9 +619,9 @@ for k = 1:Nsim
                 Price_prev = Price(:, k:k+(ctrl.RMPCLMI.Nrp-1));
                 
                 %Steady state conditions:
-                %re = 293 * ones(model.pred.ny,1);
-                Xss = M1 * [-(model2.pred.Ed*d0 + model2.pred.Gd); [R(:,k) - model2.pred.Fd]];
-                Uss = M2 * [-(model2.pred.Ed*d0 + model2.pred.Gd); [R(:,k) - model2.pred.Fd]];
+                re = 293 * ones(model.pred.ny,1);
+                Xss = M1 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
+                Uss = M2 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
                 
                 if estim.use  %  no disturbnances option
                     Xer = xp - Xss;% X(:,1): zeros
@@ -592,14 +629,14 @@ for k = 1:Nsim
                     Xer = x0 - Xss;% X(:,1): zeros
                 end
                  
-                u = zeros(model2.pred.nu,1);
+                u = zeros(model.pred.nu,1);
                 Ue = u - Uss;%
                 
-                ymaxred = wb(:,k);% was  wb
+                ymaxred = wb(:,k);% L4 maybe use wb
                 %ymaxred = 300*ones(model.pred.ny,1);
                 
-                umax = model2.pred.umax - Uss;
-                ymax = ymaxred - (model2.pred.Cd*Xss + model2.pred.Dd*Uss + model2.pred.Fd);
+                umax = model.pred.umax - Uss;
+                ymax = ymaxred - (model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd);
                 
  
                 %     initialize LMI MPC diagnostics vectors
@@ -616,27 +653,18 @@ for k = 1:Nsim
                 
             end
                 
-            if SimParam.breakdown ==1
-                if SimParam.run.start>=180
-                    if(k>=320)&&(k<=320+24) %24 = 6 hours as K = 15mins
-                        opt_out{1}(:,1)= 0.25 * model2.pred.umax;% summer
-                    end
-                else
-                    if (k>=480)&&(k<=480+24)% winter
-                        opt_out{1}(:,1)=zeros(6,1);% winter
-                    end
-                end
-            end
-                
+  
 %             %     feasibility check
            %     feasibility check
-            if ~ismember(feasible, [0 3 4 5])
+            if ~ismember(feasible_2, [0 3 4 5])
                 k
                error('infeasible')      
             else
-                uopt = opt_out{1}(:,1);   % optimal control action
-                uparam = opt_out{1}; % use the next predicted input signal to parmaterize the A, B 
-%                UParam(:,k:k+N-1) = uparam; 
+                if ctrl.ARMPC.use
+                    uopt=opt_out;%_2{1};
+                else
+                uopt = opt_out{1};   % optimal control action
+                end
 %                OBJ(k) =  opt_out{2};   % objective function value   
 %                 DUALS(:,k) = info2{1};    % dual variables
 %                DUALS(:,k) = info4.Dual; % dual variables values
@@ -676,13 +704,13 @@ for k = 1:Nsim
 
                     uopt(abs(uopt)<200) = 0;
 %                     control contraints
-                    uopt(uopt>model2.pred.umax) = model2.pred.umax(uopt>model2.pred.umax);
-                    uopt(uopt<model2.pred.umin) = model2.pred.umin(uopt<model2.pred.umin);
+                    uopt(uopt>model_1.pred.umax) = model_1.pred.umax(uopt>model_1.pred.umax);
+                    uopt(uopt<model_1.pred.umin) = model_1.pred.umin(uopt<model_1.pred.umin);
                     
 %                     block simultaneous heating and cooling
                     if not(all(uopt < 0) || all(uopt > 0))                       
                        if sum(abs(uopt)) < 1e3
-                          uopt = zeros(model2.pred.nu,1);
+                          uopt = zeros(model_1.pred.nu,1);
                        elseif sum(uopt) > 0
                           uopt(uopt<0) = 0;
                        else
@@ -690,7 +718,7 @@ for k = 1:Nsim
                        end
                     end                   
                 else
-                    uopt = zeros(model2.pred.nu,1);
+                    uopt = zeros(model_1.pred.nu,1);
                 end
                 
             elseif ctrl.MLagent.RT.use
@@ -714,23 +742,15 @@ for k = 1:Nsim
     if  SimParam.emulate
 %    State and Output update
         WW(41,1)=W(k);
-        %WW(41,1)=W(k);
-
+       
         xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1 + model.plant.Ed* WW;
         yn = model.plant.Cd*x0 + model.plant.Dd*uopt + model.plant.Fd*1;
-        
-        
-        
-        
+
         % simulation model data vectors
         X(:,k+1) = xn;
         Y(:,k) = yn;
-        
-        U(:,k) = uopt; 
-        YO=Y(:,1:k);
-        UO=U(:,1:k);
-
-    else
+        U(:,k) = uopt;       
+    else   
 % 3, Output measurements - real plant
     % TODO: implement real time measurement
        yn = Y(:,k);         % current outputs               
@@ -743,41 +763,106 @@ for k = 1:Nsim
         if estim.SKF.use  % stationary KF
             
             % measurement update                              
-            yp = model2.pred.Cd*xp + model2.pred.Dd*uopt + model2.pred.Fd*1;          % output estimation
+            yp = model_1.pred.Cd*xp + model_1.pred.Dd*uopt + model_1.pred.Fd*1;          % output estimation
             ep = yn - yp;                                                       % estimation error
             xe = xp  + estim.SKF.L1*ep;                                       % estimated state
             
             % time update
-            xp = model2.pred.Ad*xe + model2.pred.Bd*uopt + model2.pred.Ed*d0 + model2.pred.Gd*1;
-            ye = model2.pred.Cd*xe + model2.pred.Dd*uopt + model2.pred.Fd*1;     % output estimate with x[n|n]
+            xp = model_1.pred.Ad*xe + model_1.pred.Bd*uopt + model_1.pred.Ed*d0 + model_1.pred.Gd*1;
+            ye = model_1.pred.Cd*xe + model_1.pred.Dd*uopt + model_1.pred.Fd*1;     % output estimate with x[n|n]
              
         elseif estim.TVKF.use  % time varying KF           
+           if ctrl.ARMPC.use 
+               uopt_1 = opt_out_1{1};
+               uopt_2 = opt_out_2{1};
+               uopt_3 = opt_out_3{1};
+               %% Estimator_1
+               if k == 1
+                  P_1 = model_1.pred.Bd*estim.TVKF.Qe*model_1.pred.Bd';% Estimator_1        % Initial error covariance   
+                  P_2 = model_2.pred.Bd*estim.TVKF.Qe*model_2.pred.Bd';% Estimator_2        % Initial error covariance 
+                  P_3 = model_3.pred.Bd*estim.TVKF.Qe*model_3.pred.Bd';% Estimator_3        % Initial error covariance 
+               end
+            % Measurement update   
+            L_1 = P_1*model_1.pred.Cd'/(model_1.pred.Cd*P_1*model_1.pred.Cd'+estim.TVKF.Re); % observer gain
+            L_2 = P_2*model_2.pred.Cd'/(model_2.pred.Cd*P_2*model_2.pred.Cd'+estim.TVKF.Re); % observer gain
+            L_3 = P_3*model_3.pred.Cd'/(model_3.pred.Cd*P_3*model_3.pred.Cd'+estim.TVKF.Re); % observer gain
             
+            yp_1 = model_1.pred.Cd*xp_1 + model_1.pred.Dd*uopt_1 + model_1.pred.Fd*1;% output estimation
+            yp_2 = model_2.pred.Cd*xp_2 + model_2.pred.Dd*uopt_2 + model_2.pred.Fd*1;% output estimation
+            yp_3 = model_3.pred.Cd*xp_3 + model_3.pred.Dd*uopt_3 + model_3.pred.Fd*1;% output estimation
+
+              ep_1 = yn - yp_1;                                                       % estimation error
+              ep_2 = yn - yp_2;                                                       % estimation error
+              ep_3 = yn - yp_3;                                                       % estimation error
+              
+              xe_1 = xp_1 + L_1*ep_1;                                                    % x[n|n]
+              xe_2 = xp_2 + L_2*ep_2;                                                    % x[n|n]
+              xe_3 = xp_3 + L_3*ep_3;                                                    % x[n|n]
+              
+              P_1 = (eye(model_1.pred.nx)-L_1*model_1.pred.Cd)*P_1;                          % P[n|n]   estimation error covariance
+              P_2 = (eye(model_2.pred.nx)-L_2*model_2.pred.Cd)*P_2;                          % P[n|n]   estimation error covariance
+              P_3 = (eye(model_3.pred.nx)-L_3*model_3.pred.Cd)*P_3;                          % P[n|n]   estimation error covariance
+             
+              errcov_1 = model_1.pred.Cd*P_1*model_1.pred.Cd';                              % output estimation error covariance
+              errcov_2 = model_2.pred.Cd*P_2*model_2.pred.Cd';                              % output estimation error covariance
+              errcov_3 = model_3.pred.Cd*P_3*model_3.pred.Cd';                              % output estimation error covariance
+              
+              % Time update
+              xp_1 = model_1.pred.Ad*xe_1 + model_1.pred.Bd*uopt_1 + model_1.pred.Ed*d0 + model_1.pred.Gd*1;        % x[n+1|n]
+              xp_2 = model_2.pred.Ad*xe_2 + model_2.pred.Bd*uopt_2 + model_2.pred.Ed*d0 + model_2.pred.Gd*1;        % x[n+1|n]
+              xp_3 = model_3.pred.Ad*xe_3 + model_3.pred.Bd*uopt_3 + model_3.pred.Ed*d0 + model_3.pred.Gd*1;        % x[n+1|n]
+              
+              P_1 = model_1.pred.Ad*P_1*model_1.pred.Ad' + model_1.pred.Bd*estim.TVKF.Qe*model_1.pred.Bd';       % P[n+1|n]
+              P_2 = model_2.pred.Ad*P_2*model_2.pred.Ad' + model_2.pred.Bd*estim.TVKF.Qe*model_2.pred.Bd';       % P[n+1|n]
+              P_3 = model_3.pred.Ad*P_3*model_3.pred.Ad' + model_3.pred.Bd*estim.TVKF.Qe*model_3.pred.Bd';       % P[n+1|n]
+
+            
+              ye_1 = model_1.pred.Cd*xe_1 + model_1.pred.Dd*uopt_1 + model_1.pred.Fd*1;     % output estimate with x[n|n]
+              ye_2 = model_2.pred.Cd*xe_2 + model_2.pred.Dd*uopt_2 + model_2.pred.Fd*1;     % output estimate with x[n|n]
+              ye_3 = model_3.pred.Cd*xe_3 + model_3.pred.Dd*uopt_3 + model_3.pred.Fd*1;     % output estimate with x[n|n]
+
+              
+%               ee_1 = R(:,k) - ye_1;                                                       % estimation error
+%               ee_2 = R(:,k) - ye_2;                                                       % estimation error
+%               ee_3 = R(:,k) - ye_3;  
+              
+              ee_1 = -yp_1 + wa_prev(:,1);                                                       % estimation error
+              ee_2 = -yp_2 + wa_prev(:,1);                                                       % estimation error
+              ee_3 = -yp_3 + wa_prev(:,1);
+              
+              % time varying parameters data
+              %EstimGain{k} = L1;
+              %ErrorCovar{k} = errcov;
+              outdata.YP1(k,:) = yp_1;
+              outdata.YP2(k,:) = yp_2;
+              outdata.YP3(k,:) = yp_3;
+              
+              
+           
+           else    
               if k == 1
-                  P = model2.pred.Bd*estim.TVKF.Qe*model2.pred.Bd';         % Initial error covariance   
+                  P = model_1.pred.Bd*estim.TVKF.Qe*model_1.pred.Bd';         % Initial error covariance   
               end
             
               % Measurement update
-              L1 = P*model2.pred.Cd'/(model2.pred.Cd*P*model2.pred.Cd'+estim.TVKF.Re); % observer gain
-              yp = model2.pred.Cd*xp + model2.pred.Dd*uopt + model2.pred.Fd*1;          % output estimation
+              L1 = P*model_1.pred.Cd'/(model_1.pred.Cd*P*model_1.pred.Cd'+estim.TVKF.Re); % observer gain
+              yp = model_1.pred.Cd*xp + model_1.pred.Dd*uopt + model_1.pred.Fd*1;          % output estimation
               ep = yn - yp;                                                       % estimation error
               xe = xp + L1*ep;                                                    % x[n|n]
-              P = (eye(model2.pred.nx)-L1*model2.pred.Cd)*P;                          % P[n|n]   estimation error covariance
-              errcov = model2.pred.Cd*P*model2.pred.Cd';                              % output estimation error covariance
+              P = (eye(model_1.pred.nx)-L1*model_1.pred.Cd)*P;                          % P[n|n]   estimation error covariance
+              errcov = model_1.pred.Cd*P*model_1.pred.Cd';                              % output estimation error covariance
               
               % Time update
-              xp = model2.pred.Ad*xe + model2.pred.Bd*uopt + model2.pred.Ed*d0 + model2.pred.Gd*1;        % x[n+1|n]
-              P = model2.pred.Ad*P*model2.pred.Ad' + model2.pred.Bd*estim.TVKF.Qe*model2.pred.Bd';       % P[n+1|n]
+              xp = model_1.pred.Ad*xe + model_1.pred.Bd*uopt + model_1.pred.Ed*d0 + model_1.pred.Gd*1;        % x[n+1|n]
+              P = model_1.pred.Ad*P*model_1.pred.Ad' + model_1.pred.Bd*estim.TVKF.Qe*model_1.pred.Bd';       % P[n+1|n]
             
-              ye = model2.pred.Cd*xe + model2.pred.Dd*uopt + model2.pred.Fd*1;     % output estimate with x[n|n]
+              ye = model_1.pred.Cd*xe + model_1.pred.Dd*uopt + model_1.pred.Fd*1;     % output estimate with x[n|n]
               
               % time varying parameters data
               EstimGain{k} = L1;
               ErrorCovar{k} = errcov;
-             
-              
-              
-              
+           end
+           
         elseif estim.MHE.use  % TODO: moving horizon estimation
    
             if k >= estim.MHE.N
@@ -791,7 +876,7 @@ for k = 1:Nsim
                 obj_estim =  opt_out{3}; 
                 
                 if estim.MHE.Condensing                                       
-                    we = zeros(model2.pred.nx,estim.MHE.N);
+                    we = zeros(model_1.pred.nx,estim.MHE.N);
                 else
                     we =  opt_out{4};   % w decision variables at  x[n-N+1:n|n]
                 end                          
@@ -799,10 +884,10 @@ for k = 1:Nsim
             %    MHE post processing, integration of states at x[n-N+1|n] via state
             %    update and w to get x[n|n]           
                 for j = 1:N
-                    xe = model2.pred.Ad*xe + model2.pred.Bd*U(:,k-N+j) + model2.pred.Ed*D(:,k-N+j) + model2.pred.Gd*1 + we(:,j);
+                    xe = model_1.pred.Ad*xe + model_1.pred.Bd*U(:,k-N+j) + model_1.pred.Ed*D(:,k-N+j) + model_1.pred.Gd*1 + we(:,j);
                 end
              
-                ye = model2.pred.Cd*xe + model2.pred.Dd*uopt + model2.pred.Fd*1 + ve(:,N);     % output estimate with x[n|n]               
+                ye = model_1.pred.Cd*xe + model_1.pred.Dd*uopt + model_1.pred.Fd*1 + ve(:,N);     % output estimate with x[n|n]               
                 
                 OBJ_MHE(:,k) = obj_estim;
                 We(:,k) = we(:,N);
@@ -813,18 +898,18 @@ for k = 1:Nsim
                                                       
             end     
         end
-        
-        
+
     %     estimator data
-        Xp(:,k+1) = xp;
+        if ctrl.ARMPC.use 
+        Xp_1(:,k+1) = xp_1;
+        Xp_2(:,k+1) = xp_2;
+        Xp_3(:,k+1) = xp_3;
+        else
+        Xp(:,k+1) = xp;  
+        end
         Xe(:,k) = xe;
         Ye(:,k) = ye;
         Yp(:,k) = yp;
-    end
-    
-  
-    if ctrl.AMPC.use
-       
     end
     
     
@@ -978,7 +1063,7 @@ outdata.data.D = D;         %  disturbance vector
 if estim.use ==1
     outdata.data.Xe = Xe;         %  estimated state vector  [n|n]
     outdata.data.Ye = Ye;         %  estimated output vector [n|n]
-    outdata.data.Xp = Xp;         %  previous estimaror state vector [n|n-1]
+    outdata.data.Xp = Xp_1;         %  previous estimaror state vector [n|n-1]%%%%% note L2020
     outdata.data.Yp = Yp;         %  estimated output vector [n|n-1]
     
     if estim.TVKF.use

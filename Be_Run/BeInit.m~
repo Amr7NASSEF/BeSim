@@ -30,7 +30,7 @@ buildingType = 'Reno';
 % =========== 2, choose model order =================
 ModelParam.Orders.range = [4, 7, 10, 15, 20, 30, 40, 100];    % suggested = model orders for 'Reno', 'Old', 'RenoLight'
 % ModelParam.Orders.range = [100, 200, 600];                  % suggested model orders for 'Infrax', 'HollandschHuys'
-ModelParam.Orders.choice = 30; % L2020 March 4 'full';                            % model order selection for prediction
+ModelParam.Orders.choice = 10; % L2020 March 4 'full';                            % model order selection for prediction
 ModelParam.off_free = 0; %L2020 -change to 0 and observer the difference,                                      % augmented model with unmeasured disturbances
 ModelParam.reload = 0;                                        % if 1 reload ROM, if 0 load saved ROM
 
@@ -52,20 +52,20 @@ model_Old = BeModel('Old', ModelParam);      % construct a model object
 model_Light.pred.umax = model_Old.pred.umax;
 model_Reno.pred.umax = model_Old.pred.umax;
 
-model = model_Reno;      % construct a model for prediction   
-model_plant = model_Reno; % construct a model for plant simulation 
+model = model_Old;      % construct a model for prediction   
+model_plant = model_Old; % construct a model for plant simulation 
 
 %% Disturbacnes 
 % ambient temperature, solar radiation, internal heat gains
 DistParam.reload = 0;
 
-dist = BeDist(model_Reno, DistParam);        % construct a disturbances object 
+dist = BeDist(model_Old, DistParam);        % construct a disturbances object 
 
 %% References 
 % comfort constraints, price profiles
 RefsParam.Price.variable = 0;       %1 =  variable price profile, 0 = fixed to 1
 
-refs = BeRefs(model_Reno, dist, RefsParam);     % construct a references object  
+refs = BeRefs(model_Old, dist, RefsParam);     % construct a references object  
 
 %% Estimator 
 EstimParam.SKF.use = 0;          % stationary KF
@@ -74,7 +74,7 @@ EstimParam.MHE.use = 0;          % moving horizon estimation via yalmip
 EstimParam.MHE.Condensing = 1;   % state condensing 
 EstimParam.use = 1;
 
-estim = BeEstim(model_Reno, EstimParam);      % construct an estimator object  
+estim = BeEstim(model_Old, EstimParam);      % construct an estimator object  
 
 %% Controller 
 CtrlParam.use = 1;   % 0 for precomputed u,y    1 for closed loop control
@@ -100,7 +100,7 @@ CtrlParam.ARMPC.Condensing = 1;
 CtrlParam.RMPCLMI.use=1; %L2020 MUP USE 
 
 if (CtrlParam.RMPCLMI.use||CtrlParam.ARMPC.use)
-     ctrl = BeCtrl_1(model_Reno,model_Old,model_Light,CtrlParam); % first model should be the plant model for LMI 
+     ctrl = BeCtrl_1(model_Old,model_Reno,model_Light,CtrlParam); % first model should be the plant model for LMI 
  else
     ctrl = BeCtrl(model, CtrlParam);       % construct a controller object
 end
@@ -114,8 +114,7 @@ SimParam.flagSave = 0;
 SimParam.comfortTol = 1e-1;
 SimParam.emulate = 1;  % emulation or real measurements:  0 = measurements,  1 = emulation
 SimParam.profile = 0;  % profiler function for CPU evaluation
-SimParam.allDist =0;  % 1 = provide all the disturbance to the controller, 0= only Ambient Temperature will be provided to Controller
-SimParam.breakdown =0; % 1 simulate a breakdown on all heaters on 5th for 6 hours 
+SimParam.allDist =1;  % 1 = provide all the disturbance to the controller, 0= only Ambient Temperature will be provided to Controller
 % %  simulation file with embedded plotting file
 
 %outdata = BeSim(model, estim, ctrl, dist, refs, SimParam);

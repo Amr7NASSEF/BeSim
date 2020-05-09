@@ -1,7 +1,7 @@
 clear all;
 yalmip('clear');
 ModelParam.Orders.range = [4, 7, 10, 15, 20, 30, 40, 100];
-ModelParam.Orders.choice = 10;%'full'; % L2020 March 4 'full';                            % model order selection for prediction
+ModelParam.Orders.choice = 20;%'full'; % L2020 March 4 'full';                            % model order selection for prediction
 ModelParam.off_free = 0; %L2020 -change to 0 and observer the difference,                                      % augmented model with unmeasured disturbances
 ModelParam.reload = 0;                                        % if 1 reload ROM, if 0 load saved ROM
 
@@ -20,13 +20,28 @@ model_Light = BeModel('RenoLight', ModelParam);      %3 construct a model object
 model_Reno = BeModel('Reno', ModelParam);      %2 construct a model object   
 model_Old = BeModel('Old', ModelParam);      %1 construct a model object   
 
-model = model_Old;      % construct a model for prediction   
+mod = model_Old;      % construct a model for prediction   
 
 %% Disturbacnes 
 % ambient temperature, solar radiation, internal heat gains
 DistParam.reload = 0;
-dist = BeDist(model, DistParam);
-mpc=BeRMPCLMI(model_Old,model_Reno,model_Light);
+dis = BeDist(mod, DistParam);
+mpc=BeRMPCLMI_test(model_Old,model_Reno,model_Light);
+
+% controller.ARMPC.N = 22;%3;%22;
+% controller.ARMPC.Nc = 22;%22;
+% controller.ARMPC.Nrp = 22;%22;
+% controller.ARMPC.Ndp = 22;%22;
+% % weight diagonal matrices
+% controller.ARMPC.Qsb = 1e8*eye(model_Old.pred.ny);
+% controller.ARMPC.Qsa = 1e8*eye(model_Old.pred.ny);
+% controller.ARMPC.Qu  = 1e2*eye(model_Old.pred.nu);
+% controller.ARMPC.use=    1; % L2020 RMPC MUP Use 
+% controller.ARMPC.Condensing =    1;
+%     
+% mpc_1=BeRMPCMINMAX(model_Old, controller.ARMPC);
+% mpc_2=BeRMPCMINMAX(model_Reno, controller.ARMPC);
+% mpc_3=BeRMPCMINMAX(model_Light, controller.ARMPC);
 
 
 %% ----------------- 
@@ -128,22 +143,22 @@ mpc=BeRMPCLMI(model_Old,model_Reno,model_Light);
 
 
 
-x = zeros(model.pred.nx,1); %inital values
-u = zeros(model.pred.nu,1);
-ymaxred=300*ones(model.pred.ny,1);
+x = zeros(mod.pred.nx,1); %inital values
+u = zeros(mod.pred.nu,1);
+ymaxred=300*ones(mod.pred.ny,1);
 
 
 
-D=dist.d(1:500,:)';    
-ref=295*ones(model.pred.ny,1);
+D=dis.d(1:500,:)';    
+ref=295*ones(mod.pred.ny,1);
 %ref=20;
 for i=1:96
     d0=D(:,i);    
-M   = inv([[model.pred.Ad - eye(model.pred.nx)], model.pred.Bd; model.pred.Cd, model.pred.Dd]);
-M1  = M(1:model.pred.nx,:);
-M2  = M(model.pred.nx+1:end,:);
-Xss = M1 * [-(model.pred.Ed*d0 + model.pred.Gd); [ref - model.pred.Fd]];
-Uss = M2 * [-(model.pred.Ed*d0 + model.pred.Gd); [ref - model.pred.Fd]];
+M   = inv([[mod.pred.Ad - eye(mod.pred.nx)], mod.pred.Bd; mod.pred.Cd, mod.pred.Dd]);
+M1  = M(1:mod.pred.nx,:);
+M2  = M(mod.pred.nx+1:end,:);
+Xss = M1 * [-(mod.pred.Ed*d0 + mod.pred.Gd); [ref - mod.pred.Fd]];
+Uss = M2 * [-(mod.pred.Ed*d0 + mod.pred.Gd); [ref - mod.pred.Fd]];
 ss(:,i) =Uss; 
 %     M = inv([A-eye(nx) B; C 0]);
 %     M1 = M(1:nx,:);
@@ -157,8 +172,8 @@ Ue = u - Uss;
 % end
 
 
-umax = model.pred.umax - Uss;
-ymax = ymaxred -(model.pred.Cd*Xss + model.pred.Dd*Uss + model.pred.Fd); 
+umax = mod.pred.umax - Uss;
+ymax = ymaxred -(mod.pred.Cd*Xss + mod.pred.Dd*Uss + mod.pred.Fd); 
 err(:,i)=Xe;
 [solutions,info] = mpc{{Xe,umax,ymax}};
     Qnew = solutions{2};
@@ -168,9 +183,9 @@ err(:,i)=Xe;
     F = Ynew * inv(Qnew);
     u = Uss + F*Xe;
     
-    x = model.pred.Ad*x + model.pred.Bd*u + model.pred.Ed*d0 + model.pred.Gd;
+    x = mod.pred.Ad*x + mod.pred.Bd*u + mod.pred.Ed*d0 + mod.pred.Gd;
     XX(:,i)=x;
-    y(:,i) = model.pred.Cd*x + model.pred.Dd*u + model.pred.Fd;
+    y(:,i) = mod.pred.Cd*x + mod.pred.Dd*u + mod.pred.Fd;
 
 end
 m=1

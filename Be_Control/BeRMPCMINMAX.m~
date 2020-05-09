@@ -132,7 +132,9 @@ for k = 1:N
                 AB(:, (N-k)*nu+1:(N-k+1)*nu ) = model.pred.Bd;        %  input matrix evolution
                 AE(:, (N-k)*nd+1:(N-k+1)*nd ) =  model.pred.Ed;       %  disturbance matrix evolution
                 AG(:, (N-k)*1+1:(N-k+1)*1 ) =  model.pred.Gd;         %  initial conditions matrix evolution
-                AW(:, (N-k)*nw+1:(N-k+1)*nw) = ones(nx,nw);        % G matrix in paper  the impact of Uncertainty on States dynamics 
+                ww=model.pred.Ed*0;
+                ww(:,41)=model.pred.Ed(:,41);
+                AW(:, (N-k)*nw+1:(N-k+1)*nw) = zeros(nx,nw);        % G matrix in paper  the impact of Uncertainty on States dynamics 
                 
                 y(:, k) = model.pred.Cd*x(:, k) + model.pred.Dd*uk + model.pred.Fd*1;% : ['SSM_single_shoot_k=',int2str(k)]];% L2020 using V instead of U 
             else
@@ -173,12 +175,12 @@ for k = 1:N
          con = con + [ (0*ones(model.pred.ny,1)<=s(:,k)):['nonnegative_slacks_k=',int2str(k)] ];  
        
         %   uncertainty constraints 
-         G = G + [ -10<= W(:,k) <= 10];
+         G = G + [ -20<= W(:,k) <= 20];
 
     %   -------------  OBJECTIVE FUNCTION  -------------
         %    % quadratic objective function withouth states constr.  penalisation
         
-         obj = obj + norm(s(:,k),1) + 0.01 * norm((y(:,k)-wb),1)+ 0.01 * norm((y(:,k)-wa),1);% just the slack?? 
+         obj = obj + norm(s(:,k),1) + 0.01 * norm((y(:,k)-wb),1);
          
         if k>=2                             
          obj=obj + norm(u(:,k) - u(:,k-1),1);

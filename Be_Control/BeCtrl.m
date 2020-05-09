@@ -27,6 +27,10 @@ controller.use = CtrlParam.use;
 controller.MPC.use =    CtrlParam.MPC.use;
 controller.MPC.Condensing =    CtrlParam.MPC.Condensing;
 
+controller.AMPC.use =    CtrlParam.AMPC.use;
+controller.AMPC.Condensing =    CtrlParam.AMPC.Condensing;
+controller.MHEParams.Condensing= CtrlParam.AMPC.MHE.Condensing;
+
 controller.LaserMPC.use =    CtrlParam.LaserMPC.use;
 controller.LaserMPC.Condensing =    CtrlParam.LaserMPC.Condensing;
 
@@ -36,6 +40,9 @@ controller.MLagent.use =    CtrlParam.MLagent.use;
 
 controller.RMPC.use=    CtrlParam.RMPC.use; % L2020 RMPC MUP Use 
 controller.RMPC.Condensing =    CtrlParam.RMPC.Condensing;
+
+controller.ARMPC.use=    CtrlParam.ARMPC.use; % L2020 RMPC MUP Use 
+controller.ARMPC.Condensing =    CtrlParam.ARMPC.Condensing;
 
 controller.RMPCLMI.use=    CtrlParam.RMPCLMI.use; % L2020 RMPC MUP Use 
 % %  % input constraints  [W]
@@ -93,6 +100,44 @@ end
     %  MPC optimizer synthesis   
     [controller.MPC.optimizer, controller.MPC.constraints_info] = BeMPCdesign(model, controller.MPC);
     fprintf('*** Done.\n')
+    
+    
+elseif CtrlParam.AMPC.use  
+    fprintf('*** Create AMPC controller ... \n')
+   
+if  strcmp(model.buildingType,'HollandschHuys')    
+     % horizons
+    controller.AMPC.N = 32;
+    controller.AMPC.Nc = 32;
+    controller.AMPC.Nrp = 32;
+    controller.AMPC.Ndp = 32;
+    % weight diagonal matrices 
+    controller.AMPC.Qsb = 1e10*eye(model.pred.ny);
+    controller.AMPC.Qsa = 1e10*eye(model.pred.ny);
+    controller.AMPC.Qu = 1e0*eye(model.pred.nu);
+else 
+     % horizons
+    controller.AMPC.N = 22;
+    controller.AMPC.Nc = 22;
+    controller.AMPC.Nrp = 22;
+    controller.AMPC.Ndp = 22;
+    % weight diagonal matrices 
+    controller.AMPC.Qsb = 1e8*eye(model.pred.ny);
+    controller.AMPC.Qsa = 1e8*eye(model.pred.ny);
+    controller.AMPC.Qu = 1e0*eye(model.pred.nu);
+    
+    controller.MHEParams.N=30;
+    controller.MHEParams.Qe = 1e0*eye(model.pred.nx);                            % process noise covariance 
+    controller.MHEParams.Re = 1e0*eye(model.pred.ny);
+        
+end   
+    %  MPC optimizer synthesis   
+    [controller.AMPC.optimizer, controller.AMPC.constraints_info] = BeAMPCdesign(model, controller.AMPC);
+    [controller.AMPC.UpdateParam] = BeMHEParam(model, controller.MHEParams);
+    fprintf('*** Done.\n')    
+    
+    
+    
     
 elseif CtrlParam.LaserMPC.use  
     fprintf('*** Create LaserMPC controller ... \n')

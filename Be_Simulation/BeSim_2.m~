@@ -616,18 +616,12 @@ for k = 1:Nsim
                 
             end
                 
-            if SimParam.breakdown ==1
-                if SimParam.run.start>=180
-                    if(k>=320)&&(k<=320+24) %24 = 6 hours as K = 15mins
-                        opt_out{1}(:,1)= 0.25 * model2.pred.umax;% summer
-                    end
-                else
-                    if (k>=480)&&(k<=480+24)% winter
-                        opt_out{1}(:,1)=zeros(6,1);% winter
-                    end
-                end
-            end
-                
+ if SimParam.breakdown ==1
+     if (k>=480)&&(k<=480+24)
+         
+     end
+ end
+            
 %             %     feasibility check
            %     feasibility check
             if ~ismember(feasible, [0 3 4 5])
