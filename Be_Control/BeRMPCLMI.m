@@ -1,8 +1,7 @@
-function [mpc, constraints_info] = BeRMPCLMI(model1,model2,model3 )% RMPCLMIParam
+function [mpc, constraints_info] = BeRMPCLMI(model1,model2,model3,controller.RMPCLMI)% RMPCLMIParam
        % dimensions
     nx = model1.pred.nx;
     ny = model1.pred.ny;
-    nd = model1.pred.nd;
     nu = model1.pred.nu;
 
     % variables
@@ -34,9 +33,9 @@ function [mpc, constraints_info] = BeRMPCLMI(model1,model2,model3 )% RMPCLMIPara
     
    %% Weight Matrices
    
-    Qy = eye(nu)*10^-3;
-    Qw = C{1,1}'*C{1,1}*10^0;%0 ,-4% original it was 10^5
-    %Qw = Qx'*Qx*10^5;
+    Qy = controller.RMPCLMI.Qy;
+    Qw = controller.RMPCLMI.Qw;
+
  
     % to organise the matrices for LMI 
     ZEROx = zeros(nx,nx);

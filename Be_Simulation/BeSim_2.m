@@ -1,4 +1,4 @@
-function outdata = BeSim_2(model,model2 ,estim, ctrl, dist, refs, SimParam)
+function outdata = BeSim_2W(model,model2 ,estim, ctrl, dist, refs, SimParam)
 
 if nargin == 0  % model
    buildingType = 'Infrax';  
@@ -105,15 +105,20 @@ end
 X = zeros(model.plant.nx,Nsim+1);
 Dp = dist.d(SimStart:SimStop+N,:)';% disturbance injected into the plant
 
-if SimParam.allDist ==1
+if SimParam.allDist ==1 %2020
     D = dist.d(SimStart:SimStop+N,:)';% disturbance injected into the controller
 else
+    % disturbances of the room and weather forecasting 
     D = dist.d(SimStart:SimStop+N,:)'*0;
-    D(41,:) = dist.d(SimStart:SimStop+N,41)';  
+%     D(28,:) = dist.d(SimStart:SimStop+N,28)';
+%     D(31,:) = dist.d(SimStart:SimStop+N,31)';
+%     D(34,:) = dist.d(SimStart:SimStop+N,34)';
+%     D(37,:) = dist.d(SimStart:SimStop+N,37)';
+%     D(40,:) = dist.d(SimStart:SimStop+N,40)';
+      D(41,:) = dist.d(SimStart:SimStop+N,41)';
+%     D(42,:) = dist.d(SimStart:SimStop+N,42)';
+%     D(44,:) = dist.d(SimStart:SimStop+N,44)';
 end
-
-%      arrange for certain flag for the disturbance            dd=zeros(44,ctrl.MPC.Ndp);
-%                 dd(41,:)=Dpreview(41,:);
 
 % diagnostics
 StepTime = zeros(1,Nsim); 
@@ -201,22 +206,6 @@ if ctrl.MPC.use
              [opt_out, feasible, info1, info2, info3, info4] =  ctrl.MPC.optimizer{{X(:,1), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
         else
              [opt_out, feasible, info1, info2, info3, info4] =  ctrl.MPC.optimizer{{Xp(:, 1), D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
-       
-        end
- 
-end
-
-if ctrl.AMPC.use
-        Ares = zeros(model2.pred.nx,model2.pred.nx); % initial for Ares
-        Bres = zeros(model2.pred.nx,model2.pred.nu);% initial for Bres
-%     initialize MPC diagnostics vectors
-        Aupd = model2.pred.Ad+Ares;
-        Bupd = model2.pred.Bd+Bres;
-
-        if model.plant.nd == 0  %  no disturbnances option
-             [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{X(:,1), Aupd, Bupd ,wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states
-        else
-             [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{Xp(:, 1), Aupd, Bupd, D(:,1:N), wa(:,1:Nrp), wb(:,1:Nrp), Price(:,1:N)}}; % optimizer with estimated states          
        
         end
  
@@ -347,20 +336,10 @@ fprintf('\n---------------- Simulation Running -----------------');
 reverseStr = '';
 
 start_t = clock;
-%W = mean(dist.d(:,41)) - normrnd(mean(dist.d(1:Nsim,41)),0.5*var(dist.d(1:Nsim,41)),1,Nsim);
-%W = Uncertainty(dist.d,Nsim,model.plant.Ts);
-%mean(D(41,1:Nsim)) - normrnd(mean(D(41,1:Nsim)),0.5*var(D(41,1:Nsim)),1,Nsim);
-
-
-load(['Uncertain60copy.mat']);
-%W=W(:,SimStart:SimStop+N);
-
-%W =  normrnd(mean(dist.d(:,41)),var(dist.d(:,41)),1,Nsim);
-% tt=(1:Nsim)*model.plant.Ts/3600/24;
-% plot(tt,W); 
-% title('Ambient Temperature Disturbance');
-% ylabel('Temp [K]')%[^{\circ}C]'
-% xlabel('time [days]')%
+%WW = Uncertainty(dist.d,Nsim,model.plant.Ts);% function to create the
+%random walk of uncertainty depending on mean and variance during the
+%simulation period 
+load(['Uncertain60copy.mat']);% to use fixed uncertainty for all simulation scenarios
 WW =zeros(44,1);
 
 for k = 1:Nsim
@@ -411,53 +390,7 @@ for k = 1:Nsim
                     end                 
                 end
                 MPC_options = ctrl.MPC.optimizer.options;
-            elseif ctrl.AMPC.use
-    %             TODO: predictions as standalone function
-                % preview of disturbance signals on the prediction horizon
-                Dpreview = D(:, k:k+(ctrl.AMPC.Ndp-1));   
-                % preview of thresholds on the prediction horizon - Dynamic comfort zone
-                wa_prev = wa(:, k:k+(ctrl.AMPC.Nrp-1));
-                wb_prev = wb(:, k:k+(ctrl.AMPC.Nrp-1));
-                % preview of the price signal
-                Price_prev = Price(:, k:k+(ctrl.AMPC.Nrp-1));
-                
-                
-                %     initialize MPC diagnostics vectors
-                
-                if ((k<500)&&(k>(Nup+5)))
-                    %[Aupds,Bupds,rtr,vx,vy]= ParamUp(model2,Y(:,1:k-1),U(:,1:k-1),D(:,1:k-1),Xp(:,1:k),k-1);
-                    [parameters,~,~,~]=ctrl.AMPC.UpdateParam{Y(:,k-Nup:k-1),U(:,k-Nup:k-1),D(:,k-Nup:k-1),Xp(:,k-Nup-1:k-1)};
-                    if parameters{1,3}==0
-                        upd=1;%Aupd=Aupd;%model2.pred.Ad+parameters{1};%Aupds;%parameters{1};
-                        %Bupd=Bupd;model2.pred.Bd+parameters{2};%Bupds;%parameters{2};
-                    else
-%                         if upd==1
-                            %
-                        %else
-                            Aupd=parameters{1};%+model2.pred.Ad+;%Aupds;%parameters{1};
-                            Bupd=parameters{2};%+model2.pred.Bd+;%Bupds;%parameters{2};
-                        %end
-                    end
-                    
-                end
-            
-            
-                if estim.use   % estimated states
-                    if model.plant.nd == 0  %  no disturbnances option
-                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{xp, Aupd,Bupd , wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                    else
-                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{xp, Aupd,Bupd, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                    end
-                else    % perfect state update
-                    if model.plant.nd == 0  %  no disturbnances option
-                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{x0, Aupd,Bupd, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                    else
-                         [opt_out, feasible, info1, info2, info3, info4] =  ctrl.AMPC.optimizer{{x0, Aupd,Bupd, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
-                    end                 
-                end
-                
-
-                MPC_options = ctrl.AMPC.optimizer.options;
+          
                 
             elseif ctrl.LaserMPC.use   
                 % preview of disturbance signals on the prediction horizon
@@ -510,66 +443,7 @@ for k = 1:Nsim
                     end                 
                 end
                   MPC_options = ctrl.RMPC.optimizer.options;
-                  
-                  
-                  elseif ctrl.ARMPC.use
-    %             TODO: predictions as standalone function
-                % preview of disturbance signals on the prediction horizon
-                Dpreview = D(:, k:k+(ctrl.ARMPC.Ndp-1));   
-                % preview of thresholds on the prediction horizon - Dynamic comfort zone
-                wa_prev = wa(:, k:k+(ctrl.ARMPC.Nrp-1));
-                wb_prev = wb(:, k:k+(ctrl.ARMPC.Nrp-1));
-                % preview of the price signal
-                Price_prev = Price(:, k:k+(ctrl.ARMPC.Nrp-1));
-                if estim.use   % estimated states
-                    if model.plant.nd == 0  %  no disturbnances option
-                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_1{{xp, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_2{{xp, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_3{{xp, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-
-                    else
-                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_1{{xp, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_2{{xp, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_3{{xp, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-
-                    end
-                else    % perfect state update
-                    if model.plant.nd == 0  %  no disturbnances option
-                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_1{{x0, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_2{{x0, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_3{{x0, wa_prev, wb_prev, Price_prev}}; % optimizer with estimated states
-
-                    else
-                         [opt_out_1, feasible_1, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_1{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
-                         [opt_out_2, feasible_2, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_2{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
-                         [opt_out_3, feasible_3, info1, info2, info3, info4] =  ctrl.ARMPC.optimizer_3{{x0, Dpreview, wa_prev, wb_prev, Price_prev}}; % optimizer with measured states  
-  
-                    end                 
-                end
-                
-                % select 
-                
-                
-                
-                if select==1
-                    opt_out=opt_out_1;
-                    feasible=feasible_1;
-                    MPC_options = ctrl.ARMPC.optimizer_1.options;
-                elseif select==2
-                    opt_out=opt_out_2;
-                    feasible=feasible_2;
-                    MPC_options = ctrl.ARMPC.optimizer_2.options;
-                elseif select==3
-                    opt_out=opt_out_3;
-                    feasible=feasible_3;
-                    MPC_options = ctrl.ARMPC.optimizer_3.options;
-                else
-                end
-                    
-                
-                  %MPC_options = ctrl.ARMPC.optimizer.options;
-                  
-                  
+                         
                   
            elseif ctrl.RMPCLMI.use
     %     TODO: predictions as standalone function
@@ -582,23 +456,25 @@ for k = 1:Nsim
                 Price_prev = Price(:, k:k+(ctrl.RMPCLMI.Nrp-1));
                 
                 %Steady state conditions:
-                %re = 293 * ones(model.pred.ny,1);
-                Xss = M1 * [-(model2.pred.Ed*d0 + model2.pred.Gd); [R(:,k) - model2.pred.Fd]];
-                Uss = M2 * [-(model2.pred.Ed*d0 + model2.pred.Gd); [R(:,k) - model2.pred.Fd]];
+                
+                Xss = M1 * [-(model2.pred.Ed*d0 + model2.pred.Gd); [R(:,k)  - model2.pred.Fd]];%(wb(:,k)+wa(:,k))/2) can be used instead of R
+                Uss = M2 * [-(model2.pred.Ed*d0 + model2.pred.Gd); [R(:,k)  - model2.pred.Fd]];
                 
                 if estim.use  %  no disturbnances option
-                    Xer = xp - Xss;% X(:,1): zeros
+                    Xer = xp - Xss;
                 else
-                    Xer = x0 - Xss;% X(:,1): zeros
+                    Xer = x0 - Xss;
+                end
+                if k==1
+                    Xer=zeros(model2.pred.nx,1);
                 end
                  
                 u = zeros(model2.pred.nu,1);
                 Ue = u - Uss;%
                 
-                ymaxred = wb(:,k);% was  wb
-                %ymaxred = 300*ones(model.pred.ny,1);
+                ymaxred = wa(:,k);% maximum value of Output to needed for the output LMI, can be Wb
                 
-                umax = model2.pred.umax - Uss;
+                umax = model2.pred.umax;
                 ymax = ymaxred - (model2.pred.Cd*Xss + model2.pred.Dd*Uss + model2.pred.Fd);
                 
  
@@ -611,8 +487,16 @@ for k = 1:Nsim
                 F = Ynew*inv(Qnew);
                 
                 u = Uss + F*Xer;
+                outdata.xer(:,k)=Xer;
+                for jj=1:model.pred.nu
+                    if u(jj,:)<0
+                        u(jj,:)=0;
+                    end
+                end
                 opt_out{1} = u;                
                 MPC_options = ctrl.RMPCLMI.optimizer.options;
+                
+                
                 
             end
                 
@@ -714,9 +598,12 @@ for k = 1:Nsim
     if  SimParam.emulate
 %    State and Output update
         WW(41,1)=W(k);
-        %WW(41,1)=W(k);
-
-        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1 + model.plant.Ed* WW;
+        
+        if SimParam.Uncertainty==1
+            xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1+ model.plant.Ed* WW;
+        else
+            xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1;
+        end
         yn = model.plant.Cd*x0 + model.plant.Dd*uopt + model.plant.Fd*1;
         
         
@@ -820,11 +707,6 @@ for k = 1:Nsim
         Xe(:,k) = xe;
         Ye(:,k) = ye;
         Yp(:,k) = yp;
-    end
-    
-  
-    if ctrl.AMPC.use
-       
     end
     
     

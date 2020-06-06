@@ -30,7 +30,7 @@ buildingType = 'Reno';
 % =========== 2, choose model order =================
 ModelParam.Orders.range = [4, 7, 10, 15, 20, 30, 40, 100];    % suggested = model orders for 'Reno', 'Old', 'RenoLight'
 % ModelParam.Orders.range = [100, 200, 600];                  % suggested model orders for 'Infrax', 'HollandschHuys'
-ModelParam.Orders.choice = 30; % L2020 March 4 'full';                            % model order selection for prediction
+ModelParam.Orders.choice = 'full'; % L2020 March 4 'full';                            % model order selection for prediction
 ModelParam.off_free = 0; %L2020 -change to 0 and observer the difference,                                      % augmented model with unmeasured disturbances
 ModelParam.reload = 0;                                        % if 1 reload ROM, if 0 load saved ROM
 
@@ -78,29 +78,21 @@ estim = BeEstim(model_Reno, EstimParam);      % construct an estimator object
 
 %% Controller 
 CtrlParam.use = 1;   % 0 for precomputed u,y    1 for closed loop control
-CtrlParam.MPC.use = 0;%L2020 March 3 orignal = 1
+CtrlParam.MPC.use = 1;%L2020 March 3 orignal = 1
 CtrlParam.MPC.Condensing = 1;%L2020 March 3 orignal = 1
-
-CtrlParam.AMPC.use = 0;%L2020 March 3 orignal = 1
-CtrlParam.AMPC.Condensing = 0;%L2020 March 3 orignal = 1
-CtrlParam.AMPC.MHE.Condensing = 0;%L2020 March 3 orignal = 1
-
 CtrlParam.LaserMPC.use = 0;
 CtrlParam.LaserMPC.Condensing = 1;
 CtrlParam.RBC.use = 0;
 CtrlParam.PID.use = 0;
 CtrlParam.MLagent.use = 0;
-
 CtrlParam.RMPC.use=0;
 CtrlParam.RMPC.Condensing = 1;
-
-CtrlParam.ARMPC.use=0;%L2020 MUP USE 
+CtrlParam.ARMPC.use=0;%L2020 MUP USE % can be change to GSRMPC
 CtrlParam.ARMPC.Condensing = 1;
+CtrlParam.RMPCLMI.use=0; %L2020 MUP USE 
 
-CtrlParam.RMPCLMI.use=1; %L2020 MUP USE 
-
-if (CtrlParam.RMPCLMI.use||CtrlParam.ARMPC.use)
-     ctrl = BeCtrl_1(model_Reno,model_Old,model_Light,CtrlParam); % first model should be the plant model for LMI 
+if (CtrlParam.RMPCLMI.use||CtrlParam.ARMPC.use) % because we need 3 model to create these controllers 
+     ctrl = BeCtrl_1(model_Old,model_Reno,model_Light,CtrlParam); % first model should be the plant model for LMI 
  else
     ctrl = BeCtrl(model, CtrlParam);       % construct a controller object
 end
@@ -114,16 +106,18 @@ SimParam.flagSave = 0;
 SimParam.comfortTol = 1e-1;
 SimParam.emulate = 1;  % emulation or real measurements:  0 = measurements,  1 = emulation
 SimParam.profile = 0;  % profiler function for CPU evaluation
-SimParam.allDist =0;  % 1 = provide all the disturbance to the controller, 0= only Ambient Temperature will be provided to Controller
-SimParam.breakdown =0; % 1 simulate a breakdown on all heaters on 5th for 6 hours 
+SimParam.allDist =1;  % 1 = provide all the disturbance to the controller, 0= only Ambient Temperature will be provided to Controller
+SimParam.breakdown =0;% 1 simulate a breakdown on all heaters on 5th for 6 hours 
+SimParam.Uncertainty =1;% to simulate the additive uncertainty in the ambient temperature 
 % %  simulation file with embedded plotting file
 
 %outdata = BeSim(model, estim, ctrl, dist, refs, SimParam);
 
 if CtrlParam.ARMPC.use
-    outdata = BeSim_3(model_plant,model_Old,model_Reno,model_Light, estim, ctrl, dist, refs, SimParam);%check the shcedule gain 40 
+    %provide here the plant, the model to do gain-schedule strategy among them
+    outdata = BeSim_3(model_plant,model_Old,model_Reno,model_Light, estim, ctrl, dist, refs, SimParam);
 else
-    outdata = BeSim_2(model_plant,model, estim, ctrl, dist, refs, SimParam);
+    outdata = BeSim_2(model_plant,model, estim, ctrl, dist, refs, SimParam);% if there is no mis-match betweent the model and plant, you can set them both the same
 end
 
 %% Diagnose the MPC problem via Yalmip optimize

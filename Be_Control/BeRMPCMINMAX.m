@@ -178,12 +178,22 @@ for k = 1:N
     %   -------------  OBJECTIVE FUNCTION  -------------
         %    % quadratic objective function withouth states constr.  penalisation
         
-         obj = obj + norm(s(:,k),1) + 0.01 * norm((y(:,k)-wb),1)+ 0.01 * norm((y(:,k)-wa),1);% just the slack?? 
+         obj = obj + norm(s(:,k),1) + 1000* norm((y(:,k)-(wb+1)),1);
+
+%           obj = obj + norm(s(:,k),1)+ 1000 * norm((y(1,k)-wb(1,:)-1),1)+...
+%              + 1000 * norm((y(2,k)-wb(2,:)-1),1)+ 50 * norm((y(3,k)-wb(3,:)-1),1)+...
+%           100 * norm((y(4,k)-wb(4,:)-1),1)+ 50 * norm((y(5,k)-wb(5,:)-1),1)+ 50 * norm((y(6,k)-wb(6,:)-1),1);
+%       
+         
          
         if k>=2                             
          obj=obj + norm(u(:,k) - u(:,k-1),1);
         end
-  
+%   
+%                
+        
+        
+        
                               
                              % obj = obj + s(:,k)'*Qsb*s(:,k) +V(:,k)'*Qu*V(:,k);
                                      %  quadratic penalization of ctrl action move blocking formulation
@@ -196,14 +206,14 @@ end
      %   structure:  optimizer(constraints, objecttive, options, input_params, output_params)
 
      %optimizer options
-%     try
+    try
       options = sdpsettings('verbose', 1, 'solver','gurobi');%,'gurobi.TimeLimit',600);%,'gurobi.TimeLimit',50);       
-%      test = optimizer([],[],options,[],[]);
+      test = optimizer([],[],options,[],[]);
 %         %options = sdpsettings('verbose', 1, 'warning', 1, 'beeponproblem', 1, 'solver','cplex');
-%     catch
-%        options = sdpsettings;
-%        fprintf('Quadprog used instead \n');
-%     end
+     catch
+        options = sdpsettings;
+        fprintf('Quadprog used instead \n');
+     end
 %   worst case optimization cpu time -  max time limit for solver options.gurobi.TimeLimit
 % http://www.gurobi.com/documentation/7.5/refman/timelimit.html
 

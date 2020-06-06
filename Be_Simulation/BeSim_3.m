@@ -50,7 +50,7 @@ end
 %% Simulation setup   
 fprintf('\n------------------ Simulation Setup -----------------\n');
 
-fprintf('*** Building Type Prediction = %s\n' , model_1.buildingType);
+%fprintf('*** Building Type Prediction = %s\n' , model_1.buildingType);
 fprintf('*** Building Type Plant = %s\n' , model.buildingType);
 fprintf('*** r order = %d, \n',   size(model_1.pred.Ad,1))
 fprintf('*** Start day = %d , End day = %d \n', SimParam.run.start, SimParam.run.end);
@@ -346,7 +346,7 @@ start_t = clock;
 %mean(D(41,1:Nsim)) - normrnd(mean(D(41,1:Nsim)),0.5*var(D(41,1:Nsim)),1,Nsim);
 
 
-load(['Uncertainty.mat']);
+load(['Uncertain60copy.mat']);
 
 
 %W =  normrnd(mean(dist.d(:,41)),var(dist.d(:,41)),1,Nsim);
@@ -493,113 +493,7 @@ for k = 1:Nsim
   
                     end                 
                 end
-                %nv=3;% no of models
-                
-%                 if k==1
-%                     for j=1:model.plant.ny
-%                         if opt_out_1{1}(j)>=opt_out_2{1}(j)
-%                             if opt_out_1{1}(j)>=opt_out_3{1}(j)
-%                                 choix(j)=1;
-%                             else
-%                                 choix(j)=3;
-%                             end
-%                         elseif opt_out_2{1}(j)>=opt_out_3{1}(j)
-%                             choix(j)=2;
-%                         else
-%                             choix(j)=3;
-%                             
-%                         end  
-%                     end
-%                     Q=1;
-%                     choix=[1;1;1;1;1;1];
-%                     choix=[2;2;2;2;2;2];
-%                     choix=[3;3;3;3;3;3];
-%                     outdata.choix(Q,:)=choix;
-%                     opt_out=opt_out_3{1};%_2{1};
-%                 end
-                
-%                 if (rem(k,15)==0)% to decide when the comparison should start
-%                     for j=1:model.plant.ny
-%                         if ee_1(j)>=0
-%                             if ee_2(j)>=0
-%                                 if ee_3(j)>=0
-%                                     if ee_1(j)<=ee_2(j)
-%                                         if ee_1(j)<=ee_3(j)
-%                                             choix(j)=1;
-%                                         else
-%                                             choix(j)=3;
-%                                         end
-%                                     elseif ee_2(j)<=ee_3(j)
-%                                         choix(j)=2;
-%                                     else
-%                                         choix(j)=3;
-%                                     end
-%                                 elseif ee_1(j)>ee_2(j)
-%                                     choix(j)=2;
-%                                 else
-%                                     choix(j)=1;
-%                                 end
-%                             elseif ee_3(j)>=0
-%                                 if ee_1(j)>ee_3(j)
-%                                     choix(j)=3;
-%                                 else
-%                                     choix(j)=1;
-%                                 end
-%                             else
-%                                 choix(j)=1;
-%                             end
-%                         elseif ee_2(j)>=0
-%                             if ee_3(j)>=0
-%                                 if ee_2(j)>ee_3(j)
-%                                     choix(j)=3;
-%                                 else
-%                                     choix(j)=2;
-%                                 end
-%                             else
-%                                 choix(j)=2;
-%                             end
-%                         elseif ee_3(j)>=0
-%                             choix(j)=3;
-%                         else
-%                             if ee_1(j)<=ee_2(j)
-%                                 if ee_1(j)<=ee_3(j)
-%                                     choix(j)=1;
-%                                 else
-%                                     choix(j)=3;
-%                                 end
-%                             elseif ee_2(j)<=ee_3(j)
-%                                 choix(j)=2;
-%                             else
-%                                 choix(j)=3;
-%                             end
-%                         end
-%                     end
-%                     Q=Q+1;
-%                     outdata.choix(Q,:)=choix;
-%                 end
-                
-                
-%                % choix=[1;1;1;1;1;1];
-%                 for jj=1:model.plant.ny
-%                     eval(['opt_out(' num2str(jj) ')=opt_out_' num2str(choix(jj)) '{1}(' num2str(jj) ');' ])   
-%                 end
-                
-                
-%                 if (sum(choix==1))>=(sum(choix==2)) % to have uniform states, not different dynamics for each one.
-%                     if (sum(choix==1))>=(sum(choix==3))
-%                         opt_out=opt_out_1{1};%
-%                     else
-%                         opt_out=opt_out_3{1};
-%                     end
-%                 elseif (sum(choix==2))>=(sum(choix==3))
-%                     opt_out=opt_out_2{1};
-%                 else
-%                     opt_out=opt_out_3{1};
-%                 end
-%                 opt_out=opt_out_3{1};
-                % IC
-                % duration to collect correct data to make a comparison 
-               
+ %------------------ gain-schedule Strategy to choose the best Model ------------ -- - - - - - - - - - -- - - - - - -               
                 if k<(N*4)
                     if (rem(k,N)==0)
                         choix=choix-1;
@@ -631,29 +525,9 @@ for k = 1:Nsim
                 elseif choix==1
                     opt_out=opt_out_1{1};
                 end
+%-------------------------------- the choice is done ---------------------
                 
-                
-                
-              
-                
-%                 if k==22
-%                     opt_out=opt_out_2{1};
-%                     %feasible=feasible_1;
-%                     %MPC_options = ctrl.ARMPC.optimizer1.options;
-%                 elseif select==44
-%                     opt_out=opt_out_1{1};
-%                     %feasible=feasible_2;
-%                     %MPC_options = ctrl.ARMPC.optimizer2.options;
-%                 elseif select==66
-%                     opt_out=opt_out_3{1};
-%                     %feasible=feasible_3;
-%                     %MPC_options = ctrl.ARMPC.optimizer3.options;
-%                      elseif select==66
-%                 else
-%                 end
-                    
-                
-                  MPC_options = ctrl.ARMPC.optimizer1.options;
+                MPC_options = ctrl.ARMPC.optimizer1.options;
                   
                   
                   
@@ -669,7 +543,8 @@ for k = 1:Nsim
                 
                 %Steady state conditions:
                 re = 293 * ones(model.pred.ny,1);
-                Xss = M1 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
+                Xss = M1 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];% change to have 41 only
+                
                 Uss = M2 * [-(model.pred.Ed*d0 + model.pred.Gd); [R(:,k) - model.pred.Fd]];
                 
                 if estim.use  %  no disturbnances option
@@ -702,14 +577,14 @@ for k = 1:Nsim
                 
             end
                 
-            if SimParam.breakdown ==1
+           if SimParam.breakdown ==1
                 if SimParam.run.start>=180
                     if(k>=320)&&(k<=320+24) %24 = 6 hours as K = 15mins
-                        opt_out{1}(:,1)= 0.25 * model2.pred.umax;% summer
+                        opt_out= 0.25 * model_1.pred.umax;% summer
                     end
                 else
                     if (k>=480)&&(k<=480+24)% winter
-                        opt_out{1}(:,1)=zeros(6,1);% winter
+                        opt_out=zeros(6,1);% winter
                     end
                 end
             end
@@ -801,10 +676,14 @@ for k = 1:Nsim
     if  SimParam.emulate
 %    State and Output update
         WW(41,1)=W(k);
-       
-        xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1 + model.plant.Ed* WW;
+        if SimParam.Uncertainty==1
+            xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1+ model.plant.Ed* WW;
+        else
+            xn = model.plant.Ad*x0 + model.plant.Bd*uopt+ model.plant.Ed*d0 + model.plant.Gd*1;
+        end
         yn = model.plant.Cd*x0 + model.plant.Dd*uopt + model.plant.Fd*1;
-
+        
+       
         % simulation model data vectors
         X(:,k+1) = xn;
         Y(:,k) = yn;
@@ -850,13 +729,9 @@ for k = 1:Nsim
             yp_2 = model_2.pred.Cd*xp_2 + model_2.pred.Dd*uopt_2 + model_2.pred.Fd*1;% output estimation
             yp_3 = model_3.pred.Cd*xp_3 + model_3.pred.Dd*uopt_3 + model_3.pred.Fd*1;% output estimation
 
-              ep_1 = yn-yp_1;%yn - yp_1;                                                       % estimation error
-              ep_2 = yn-yp_2;%yn - yp_2;                                                       % estimation error
-              ep_3 = yn-yp_3;%yn - yp_3; 295.9                                                      % estimation error
-              
-              %outdata.ep_1=ep_1;
-              %outdata.ep_2=ep_2;
-              %outdata.ep_3=ep_3;
+              ep_1 = yn-yp_1;                                                       % estimation error
+              ep_2 = yn-yp_2;                                                       % estimation error
+              ep_3 = yn-yp_3;                                                       % estimation error
               
               xe_1 = xp_1 + L_1*ep_1;                                                    % x[n|n]
               xe_2 = xp_2 + L_2*ep_2;                                                    % x[n|n]
@@ -865,11 +740,7 @@ for k = 1:Nsim
               P_1 = (eye(model_1.pred.nx)-L_1*model_1.pred.Cd)*P_1;                          % P[n|n]   estimation error covariance
               P_2 = (eye(model_2.pred.nx)-L_2*model_2.pred.Cd)*P_2;                          % P[n|n]   estimation error covariance
               P_3 = (eye(model_3.pred.nx)-L_3*model_3.pred.Cd)*P_3;                          % P[n|n]   estimation error covariance
-             
-              errcov_1 = model_1.pred.Cd*P_1*model_1.pred.Cd';                              % output estimation error covariance
-              errcov_2 = model_2.pred.Cd*P_2*model_2.pred.Cd';                              % output estimation error covariance
-              errcov_3 = model_3.pred.Cd*P_3*model_3.pred.Cd';                              % output estimation error covariance
-              
+           
               % Time update
               xp_1 = model_1.pred.Ad*xe_1 + model_1.pred.Bd*uopt_1 + model_1.pred.Ed*d0 + model_1.pred.Gd*1;        % x[n+1|n]
               xp_2 = model_2.pred.Ad*xe_2 + model_2.pred.Bd*uopt_2 + model_2.pred.Ed*d0 + model_2.pred.Gd*1;        % x[n+1|n]
@@ -879,36 +750,17 @@ for k = 1:Nsim
               P_2 = model_2.pred.Ad*P_2*model_2.pred.Ad' + model_2.pred.Bd*estim.TVKF.Qe*model_2.pred.Bd';       % P[n+1|n]
               P_3 = model_3.pred.Ad*P_3*model_3.pred.Ad' + model_3.pred.Bd*estim.TVKF.Qe*model_3.pred.Bd';       % P[n+1|n]
 
+         % Store the error during the learning period to do the selection
+         % and after only for the selected model.
             
-              ye_1 = model_1.pred.Cd*xe_1 + model_1.pred.Dd*uopt_1 + model_1.pred.Fd*1;     % output estimate with x[n|n]
-              ye_2 = model_2.pred.Cd*xe_2 + model_2.pred.Dd*uopt_2 + model_2.pred.Fd*1;     % output estimate with x[n|n]
-              ye_3 = model_3.pred.Cd*xe_3 + model_3.pred.Dd*uopt_3 + model_3.pred.Fd*1;     % output estimate with x[n|n]
-
-              ee_1 = yn - yp_1;                                                       % estimation error
-              ee_2 = yn - yp_2;                                                       % estimation error
-              ee_3 = yn - yp_3;                                                       % estimation error
-             
-             if choix==3
-                  outdata.ep_3(k,:)=ep_3;
-             elseif choix ==2
-                  outdata.ep_2(k,:)=ep_2;
-              elseif choix==1
-                  outdata.ep_1(k,:)=ep_1;
-              end
-               
-              
-              
-%               ee_1 = R(:,k) - ye_1;                                                       % estimation error
-%               ee_2 = R(:,k) - ye_2;                                                       % estimation error
-%               ee_3 = R(:,k) - ye_3;  
-%               
-%               ee_1 = -yp_1 + (wa_prev(:,1)+wb_prev(:,1))/2;                                                       % estimation error
-%               ee_2 = -yp_2 + (wa_prev(:,1)+wb_prev(:,1))/2;                                                       % estimation error
-%               ee_3 = -yp_3 + (wa_prev(:,1)+wb_prev(:,1))/2;
-%               
-              % time varying parameters data
-              %EstimGain{k} = L1;
-              %ErrorCovar{k} = errcov;
+         if choix==3
+             outdata.ep_3(k,:)=ep_3;
+         elseif choix ==2
+             outdata.ep_2(k,:)=ep_2;
+         elseif choix==1
+             outdata.ep_1(k,:)=ep_1;
+         end
+        
               outdata.YP1(k,:) = yp_1;
               outdata.YP2(k,:) = yp_2;
               outdata.YP3(k,:) = yp_3;
