@@ -27,10 +27,6 @@ controller.use = CtrlParam.use;
 controller.MPC.use =    CtrlParam.MPC.use;
 controller.MPC.Condensing =    CtrlParam.MPC.Condensing;
 
-controller.AMPC.use =    CtrlParam.AMPC.use;
-controller.AMPC.Condensing =    CtrlParam.AMPC.Condensing;
-controller.MHEParams.Condensing= CtrlParam.AMPC.MHE.Condensing;
-
 controller.LaserMPC.use =    CtrlParam.LaserMPC.use;
 controller.LaserMPC.Condensing =    CtrlParam.LaserMPC.Condensing;
 
